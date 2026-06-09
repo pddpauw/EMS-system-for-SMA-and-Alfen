@@ -1,12 +1,5 @@
 [
     {
-        "id": "8dad7f9be4206a88",
-        "type": "tab",
-        "label": "SMA EMS v3 - Modbus only",
-        "disabled": false,
-        "info": "V27: Alfen actual EV values, grid-priority solar control, auto EV enable, and 4-read home power smoothing."
-    },
-    {
         "id": "bacdccb2201af974",
         "type": "udp in",
         "z": "8dad7f9be4206a88",
@@ -1358,7 +1351,7 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "Update EMS settings + auto-reset controls",
-        "func": "let s = flow.get('ems_settings') || {\n    ems_mode:'SMA',\n    battery_mode:'AUTO',\n    solar_mode:'AUTO',\n    solar_kw:10,\n    ev_enabled:false,\n    ev_manual:false,\n    ev_manual_kw:4,\n    ev_timer:false,\n    ev_timer_kw:4,\n    ev_timer_minutes:60,\n    ev_timer_schedule_active:false,\n    ev_solar:false,\n    winter_threshold:0,\n    winter_ev_kw:6,\n    forecast_based:false,\n    forecast_ev_enabled:false,\n    forecast_ev_kwh:10,\n    ems_learning_holiday:false\n};\n\nif (s.forecast_based === undefined) s.forecast_based = false;\nif (s.forecast_ev_enabled === undefined) s.forecast_ev_enabled = false;\nif (s.forecast_ev_kwh === undefined) s.forecast_ev_kwh = 10;\nif (s.ems_learning_holiday === undefined) s.ems_learning_holiday = false;\n\nlet p = msg.payload;\nlet evConnected = flow.get('EV_Connected') === true;\n\nif (p === 'refresh_ev_ui' || msg.topic === 'ev_state_refresh') {\n    if (evConnected) {\n        s.ev_enabled = true;\n    } else {\n        s.ev_enabled = false;\n        s.ev_manual = false;\n        s.ev_timer = false;\n        s.ev_solar = false;\n    }\n}\nelse if (typeof p === 'string') {\n    if (p.startsWith('EMS_MODE:')) {\n        s.ems_mode = p.split(':')[1];\n        s.battery_mode = 'AUTO';\n        s.solar_mode = 'AUTO';\n\n        if (s.ems_mode !== 'SUMMER') {\n            s.forecast_based = false;\n            s.forecast_ev_enabled = false;\n            s.forecast_ev_kwh = 10;\n        }\n    }\n    else if (p.startsWith('BATTERY_MODE:')) {\n        s.battery_mode = p.split(':')[1];\n    }\n    else if (p.startsWith('SOLAR_MODE:')) {\n        s.solar_mode = p.split(':')[1];\n    }\n}\nelse if (msg.topic === 'solar_kw') {\n    s.solar_kw = Number(p);\n}\nelse if (msg.topic === 'ev_enable') {\n    s.ev_enabled = evConnected;\n    if (!evConnected) {\n        s.ev_manual = false;\n        s.ev_timer = false;\n        s.ev_solar = false;\n    }\n}\nelse if (msg.topic === 'ev_manual') {\n    s.ev_manual = evConnected && s.ev_enabled && !!p;\n}\nelse if (msg.topic === 'ev_manual_kw') {\n    s.ev_manual_kw = Number(p);\n}\nelse if (msg.topic === 'ev_timer') {\n    s.ev_timer = evConnected && s.ev_enabled && !!p;\n    if (s.ev_timer) {\n        s.ev_timer_until = Date.now() + (Number(s.ev_timer_minutes || 60) * 60000);\n    }\n}\nelse if (msg.topic === 'ev_timer_kw') {\n    s.ev_timer_kw = Number(p);\n}\nelse if (msg.topic === 'ev_timer_minutes') {\n    s.ev_timer_minutes = Number(p);\n}\nelse if (msg.topic === 'ev_timer_schedule_active') {\n    s.ev_timer_schedule_active = !!p;\n    flow.set('EV_timer_scheduler_active', !!p);\n}\nelse if (msg.topic === 'ev_solar') {\n    s.ev_solar = evConnected && s.ev_enabled && !!p;\n    if (s.ev_solar) {\n        s.solar_mode = 'AUTO';\n    }\n}\nelse if (msg.topic === 'winter_threshold') {\n    s.winter_threshold = Number(p);\n}\nelse if (msg.topic === 'winter_ev_kw') {\n    s.winter_ev_kw = Number(p);\n}\nelse if (msg.topic === 'forecast_based') {\n    s.forecast_based = (s.ems_mode === 'SUMMER') && !!p;\n\n    if (s.forecast_based) {\n        s.forecast_ev_enabled = false;\n        s.forecast_ev_kwh = 10;\n    } else {\n        s.forecast_ev_enabled = false;\n        s.forecast_ev_kwh = 10;\n    }\n}\nelse if (msg.topic === 'forecast_ev_enabled') {\n    s.forecast_ev_enabled = (s.ems_mode === 'SUMMER') && !!s.forecast_based && !!p;\n    if (s.forecast_ev_enabled && (!isFinite(Number(s.forecast_ev_kwh)) || Number(s.forecast_ev_kwh) < 10)) {\n        s.forecast_ev_kwh = 10;\n    }\n}\nelse if (msg.topic === 'forecast_ev_kwh') {\n    let v = Number(p);\n    if (!isFinite(v)) v = 10;\n    s.forecast_ev_kwh = Math.max(10, Math.min(80, Math.round(v)));\n}\nelse if (msg.topic === 'ems_learning_holiday') {\n    s.ems_learning_holiday = !!p;\n}\n\nif (s.ems_mode !== 'SUMMER') {\n    s.forecast_based = false;\n    s.forecast_ev_enabled = false;\n    s.forecast_ev_kwh = 10;\n}\n\nif (evConnected) {\n    s.ev_enabled = true;\n} else {\n    s.ev_enabled = false;\n    s.ev_manual = false;\n    s.ev_timer = false;\n    s.ev_solar = false;\n    flow.set('ems_ev_kw_target', 0);\n    flow.set('ems_ev_a_target', 0);\n}\n\nflow.set('ems_settings', s);\n\nreturn [\n    { payload: JSON.stringify(s) },\n    { payload: s }\n];",
+        "func": "let s = flow.get('ems_settings') || {\n    ems_mode:'SMA',\n    battery_mode:'AUTO',\n    solar_mode:'AUTO',\n    solar_kw:10,\n    ev_enabled:false,\n    ev_manual:false,\n    ev_manual_kw:4,\n    ev_timer:false,\n    ev_timer_kw:4,\n    ev_timer_minutes:60,\n    ev_timer_schedule_active:false,\n    ev_solar:false,\n    winter_threshold:0,\n    winter_ev_kw:6,\n    forecast_based:false,\n    forecast_ev_enabled:false,\n    forecast_ev_kwh:10,\n    ems_learning_holiday:false,\n\n    ev_manual_pre_disconnect:false,\n    ev_timer_pre_disconnect:false,\n    ev_solar_pre_disconnect:true\n};\n\nif (s.forecast_based === undefined) s.forecast_based = false;\nif (s.forecast_ev_enabled === undefined) s.forecast_ev_enabled = false;\nif (s.forecast_ev_kwh === undefined) s.forecast_ev_kwh = 10;\nif (s.ems_learning_holiday === undefined) s.ems_learning_holiday = false;\n\nif (s.ev_manual_pre_disconnect === undefined) s.ev_manual_pre_disconnect = !!s.ev_manual;\nif (s.ev_timer_pre_disconnect === undefined) s.ev_timer_pre_disconnect = !!s.ev_timer;\nif (s.ev_solar_pre_disconnect === undefined) s.ev_solar_pre_disconnect = !!s.ev_solar;\n\nlet p = msg.payload;\nlet evConnected = flow.get('EV_Connected') === true;\n\nif (p === 'refresh_ev_ui' || msg.topic === 'ev_state_refresh') {\n    // UI refresh only, no setting changes\n}\n\nelse if (typeof p === 'string') {\n    if (p.startsWith('EMS_MODE:')) {\n        s.ems_mode = p.split(':')[1];\n        s.battery_mode = 'AUTO';\n        s.solar_mode = 'AUTO';\n\n        if (s.ems_mode !== 'SUMMER') {\n            s.forecast_based = false;\n            s.forecast_ev_enabled = false;\n            s.forecast_ev_kwh = 10;\n        }\n    }\n    else if (p.startsWith('BATTERY_MODE:')) {\n        s.battery_mode = p.split(':')[1];\n    }\n    else if (p.startsWith('SOLAR_MODE:')) {\n        s.solar_mode = p.split(':')[1];\n    }\n}\nelse if (msg.topic === 'solar_kw') {\n    s.solar_kw = Number(p);\n}\nelse if (msg.topic === 'ev_enable') {\n    s.ev_enabled = evConnected && !!p;\n\n    if (s.ev_enabled) {\n        flow.set('EV_user_disabled_this_connection', false);\n    } else {\n        flow.set('EV_user_disabled_this_connection', true);\n        flow.set('ems_ev_kw_target', 0);\n        flow.set('ems_ev_a_target', 0);\n    }\n}\nelse if (msg.topic === 'ev_manual') {\n    s.ev_manual_pre_disconnect = !!p;\n    s.ev_manual = evConnected && s.ev_enabled && !!p;\n}\nelse if (msg.topic === 'ev_manual_kw') {\n    s.ev_manual_kw = Number(p);\n}\nelse if (msg.topic === 'ev_timer') {\n    s.ev_timer_pre_disconnect = !!p;\n    s.ev_timer = evConnected && s.ev_enabled && !!p;\n\n    if (!s.ev_timer) {\n        s.ev_timer_until = 0;\n        s.ev_timer_schedule_active = false;\n        flow.set('EV_timer_scheduler_active', false);\n    }\n}\nelse if (msg.topic === 'ev_timer_kw') {\n    s.ev_timer_kw = Number(p);\n}\nelse if (msg.topic === 'ev_timer_minutes') {\n    s.ev_timer_minutes = Number(p);\n}\nelse if (msg.topic === 'ev_timer_schedule_active') {\n    s.ev_timer_schedule_active = !!p;\n    flow.set('EV_timer_scheduler_active', !!p);\n}\nelse if (msg.topic === 'ev_solar') {\n    s.ev_solar_pre_disconnect = !!p;\n    s.ev_solar = evConnected && s.ev_enabled && !!p;\n\n    if (s.ev_solar) {\n        s.solar_mode = 'AUTO';\n    }\n}\nelse if (msg.topic === 'winter_threshold') {\n    s.winter_threshold = Number(p);\n}\nelse if (msg.topic === 'winter_ev_kw') {\n    s.winter_ev_kw = Number(p);\n}\nelse if (msg.topic === 'forecast_based') {\n    s.forecast_based = (s.ems_mode === 'SUMMER') && !!p;\n    s.forecast_ev_enabled = false;\n    s.forecast_ev_kwh = 10;\n}\nelse if (msg.topic === 'forecast_ev_enabled') {\n    s.forecast_ev_enabled = (s.ems_mode === 'SUMMER') && !!s.forecast_based && !!p;\n    if (s.forecast_ev_enabled && (!isFinite(Number(s.forecast_ev_kwh)) || Number(s.forecast_ev_kwh) < 10)) {\n        s.forecast_ev_kwh = 10;\n    }\n}\nelse if (msg.topic === 'forecast_ev_kwh') {\n    let v = Number(p);\n    if (!isFinite(v)) v = 10;\n    s.forecast_ev_kwh = Math.max(10, Math.min(80, Math.round(v)));\n}\nelse if (msg.topic === 'ems_learning_holiday') {\n    s.ems_learning_holiday = !!p;\n}\n\nif (s.ems_mode !== 'SUMMER') {\n    s.forecast_based = false;\n    s.forecast_ev_enabled = false;\n    s.forecast_ev_kwh = 10;\n}\n\nflow.set('ems_settings', s);\n\nreturn [\n    { payload: JSON.stringify(s) },\n    { payload: s }\n];",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -1651,7 +1644,7 @@
         "type": "file",
         "z": "8dad7f9be4206a88",
         "name": "save EMS settings",
-        "filename": "/home/pi/ems_v3_settings.json",
+        "filename": "/home/YOUR_USER/ems_v3_settings.json",
         "filenameType": "str",
         "appendNewline": false,
         "createDir": true,
@@ -1668,7 +1661,7 @@
         "type": "file in",
         "z": "8dad7f9be4206a88",
         "name": "restore EMS settings",
-        "filename": "/home/pi/ems_v3_settings.json",
+        "filename": "/home/YOUR_USER/ems_v3_settings.json",
         "filenameType": "str",
         "format": "utf8",
         "chunk": false,
@@ -1852,15 +1845,15 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "EMS DECISION ENGINE - edit here (v27 avg)",
-        "func": "function n(v,d=0){ v=Number(v); return isFinite(v)?v:d; }\nfunction clamp(v,min,max){ return Math.max(min, Math.min(max,v)); }\nfunction validArray(a){\n    if(!Array.isArray(a)||a.length<96) return false;\n    let nums=a.map(Number).filter(isFinite);\n    return nums.length>=80 && !nums.every(v=>v===0);\n}\n\n// ---- TUNING SETTINGS ----\nconst HOME_AVG_N = 3;\nconst GRID_AVG_N = 2;\nconst BATT_AVG_N = 2;\n\nconst EV_MIN_KW = 4.2;\nconst EV_MAX_KW = 11;\nconst GRID_TARGET_W = 800;\nconst GRID_DEADBAND_W = 250;\nconst SOLAR_STEP_KW = 1.0;\n\nconst SOLAR_PROBE_INTERVAL_MS = 30 * 60 * 1000;\nconst SOLAR_PROBE_DURATION_MS = 5 * 60 * 1000;\nconst EV_SUCCESS_W = 4000;\nconst EV_SUCCESS_DURATION_MS = 2 * 60 * 1000;\n\nconst BATTERY_CAPACITY_KWH = 16;\nconst BATTERY_MAX_CHARGE_W = 5000;\nconst FORECAST_RESERVE_SOC = 15;\nconst FORECAST_MIN_CHARGE_W = 1000;\n// -------------------------\n\nlet s = flow.get('ems_settings') || {\n    ems_mode:'SMA',\n    battery_mode:'AUTO',\n    solar_mode:'AUTO',\n    solar_kw:10,\n    ev_enabled:false,\n    ev_manual:false,\n    ev_manual_kw:4,\n    ev_timer:false,\n    ev_timer_kw:4,\n    ev_timer_minutes:60,\n    ev_timer_schedule_active:false,\n    ev_solar:false,\n    winter_threshold:0,\n    winter_ev_kw:6,\n    forecast_based:false,\n    forecast_ev_enabled:false,\n    forecast_ev_kwh:10\n};\n\nif (s.forecast_based === undefined) s.forecast_based = false;\nif (s.forecast_ev_enabled === undefined) s.forecast_ev_enabled = false;\nif (s.forecast_ev_kwh === undefined) s.forecast_ev_kwh = 10;\n\nif (s.ems_mode !== 'SUMMER') {\n    s.forecast_based = false;\n    s.forecast_ev_enabled = false;\n    s.forecast_ev_kwh = 10;\n}\n\nif (s.ems_mode === 'SUMMER') {\n    s.solar_mode = 'AUTO';\n}\n\nlet now = Date.now();\nlet nowDate = new Date();\nlet todayKey = nowDate.toISOString().slice(0,10);\n\nif (flow.get('EV_solar_charge_success_day') !== todayKey) {\n    flow.set('EV_solar_charge_success_today', false);\n    flow.set('EV_solar_charge_success_day', todayKey);\n    flow.set('EV_success_timer_start', 0);\n}\n\nlet connected = flow.get('EV_Connected') === true;\nlet prevConnected = flow.get('EV_Connected_previous') === true;\nlet prevEnabled = flow.get('EV_enabled_previous') === true;\n\nif (connected && !prevConnected) {\n    s.ev_enabled = true;\n\n    if (s.ems_mode === 'SUMMER') {\n        s.ev_solar = true;\n        s.ev_manual = false;\n        s.ev_timer = false;\n    }\n}\n\nif (connected && s.ev_enabled === true && !prevEnabled && s.ems_mode === 'SUMMER') {\n    s.ev_solar = true;\n    s.ev_manual = false;\n    s.ev_timer = false;\n}\n\nif (!connected) {\n    s.ev_enabled = false;\n    s.ev_manual = false;\n    s.ev_timer = false;\n    s.ev_solar = false;\n    flow.set('EV_solar_charge_success_today', false);\n    flow.set('EV_success_timer_start', 0);\n}\n\nif (connected && prevEnabled && !s.ev_enabled) {\n    flow.set('EV_solar_charge_success_today', false);\n    flow.set('EV_success_timer_start', 0);\n}\n\nflow.set('EV_Connected_previous', connected);\nflow.set('EV_enabled_previous', s.ev_enabled === true);\nflow.set('ems_settings', s);\n\nlet P_Grid = n(flow.get('P_Grid'));\nlet P_PV = n(flow.get('P_PV'));\nlet P_Batt = n(flow.get('P_Batt'));\nlet SOC = n(flow.get('Battery_Soc'));\nlet P_Total_Load = P_PV + P_Grid + P_Batt;\n\nlet alfenPowerAge = now - n(flow.get('alfen_actual_power_last_good'),0);\nlet alfenCurrentAge = now - n(flow.get('alfen_actual_current_last_good'),0);\nlet alfenFresh = alfenPowerAge < 20000 || alfenCurrentAge < 20000;\n\nlet Actual_P_EV = connected && alfenFresh ? Math.max(0, n(flow.get('Actual_P_EV'))) : 0;\nlet Actual_I1_EV = connected && alfenCurrentAge < 20000 ? n(flow.get('Actual_I1_EV')) : 0;\nlet Actual_I2_EV = connected && alfenCurrentAge < 20000 ? n(flow.get('Actual_I2_EV')) : 0;\nlet Actual_I3_EV = connected && alfenCurrentAge < 20000 ? n(flow.get('Actual_I3_EV')) : 0;\n\nflow.set('Actual_P_EV', Actual_P_EV);\nflow.set('Actual_P_EV_estimated', false);\n\nlet P_Home_raw = Math.max(0, P_Total_Load - Actual_P_EV);\n\nfunction batteryChargeLimitBySoc(soc) {\n    soc = Number(soc);\n    if (!isFinite(soc)) return 0;\n\n    if (soc <= 95) return 5000;\n    if (soc <= 96) return 4000;\n    if (soc <= 97) return 3000;\n    if (soc <= 98) return 2000;\n    if (soc < 100) return 1000;\n\n    return 0;\n}\n\nfunction movingAvg(key, value, maxLen){\n    value = n(value, null);\n    if (value === null || !isFinite(value)) return n(flow.get(key + '_avg'), 0);\n    let arr = flow.get(key + '_hist') || [];\n    if (!Array.isArray(arr)) arr = [];\n    arr.push(value);\n    while (arr.length > maxLen) arr.shift();\n    flow.set(key + '_hist', arr);\n    let avg = arr.reduce((a,b)=>a+b,0) / arr.length;\n    flow.set(key + '_avg', avg);\n    return avg;\n}\n\nlet P_Home = Math.round(movingAvg('P_Home_Consumption', P_Home_raw, HOME_AVG_N));\nlet P_Grid_ctrl = Math.round(movingAvg('P_Grid_ctrl', P_Grid, GRID_AVG_N));\nlet P_Batt_ctrl = Math.round(movingAvg('P_Batt_ctrl', P_Batt, BATT_AVG_N));\n\nlet I1 = n(flow.get('I1_PV')) + n(flow.get('I1_Grid')) + n(flow.get('I1_Batt'));\nlet I2 = n(flow.get('I2_PV')) + n(flow.get('I2_Grid')) + n(flow.get('I2_Batt'));\nlet I3 = n(flow.get('I3_PV')) + n(flow.get('I3_Grid')) + n(flow.get('I3_Batt'));\n\nflow.set('P_Home_Consumption', P_Home);\nflow.set('P_Total_Load_Including_EV', P_Total_Load);\n\nlet todayBuy = flow.get('day_price_array');\nlet todaySell = flow.get('day_price_array_injectie');\nlet priceValid = validArray(todayBuy) && validArray(todaySell);\nflow.set('price_data_valid', priceValid);\n\nlet q = nowDate.getHours()*4 + Math.floor(nowDate.getMinutes()/15);\nlet buy = priceValid ? Number(todayBuy[q]) : null;\nlet sell = priceValid ? Number(todaySell[q]) : null;\n\nlet pvForecast =\n    flow.get('ems_exportable_pv_forecast_quarters_today') ||\n    flow.get('ems_pv_forecast_corrected_quarters_today') ||\n    flow.get('pv_forecast_quarters_today') ||\n    [];\nlet pvForecastValid = Array.isArray(pvForecast) && pvForecast.length >= 96;\n\nlet safety = false;\nlet reason = [];\nlet evKwReq = 0;\n\nlet prevSolarKw = n(flow.get('ems_solar_target_kw'), n(s.solar_kw,10));\n\nlet exportW = Math.max(0, -P_Grid_ctrl);\nlet batteryChargingW = Math.max(0, -P_Batt_ctrl);\nlet availableSolarForEV = Math.max(0, Actual_P_EV + exportW + batteryChargingW - GRID_TARGET_W);\n\n// -------------------------\n// Forecast-based planning\n// -------------------------\nlet forecastActive =\n    s.ems_mode === 'SUMMER' &&\n    s.forecast_based === true &&\n    priceValid &&\n    pvForecastValid;\n\nlet forecastPlan = {\n    active: forecastActive,\n    valid: pvForecastValid,\n    q,\n    chargeNow: false,\n    holdNow: false,\n    chargePowerW: 0,\n    requiredKwh: 0,\n    selectedQuarters: [],\n    currentSelected: false,\n    note: ''\n};\n\nif (forecastActive) {\n    let socKwh = BATTERY_CAPACITY_KWH * clamp(SOC,0,100) / 100;\n    let reserveKwh = BATTERY_CAPACITY_KWH * FORECAST_RESERVE_SOC / 100;\n\n    let battNeedKwh = Math.max(0, BATTERY_CAPACITY_KWH - socKwh);\n    let evNeedKwh = s.forecast_ev_enabled ? clamp(n(s.forecast_ev_kwh,10),10,80) : 0;\n    let totalNeedKwh = battNeedKwh + evNeedKwh;\n\n    forecastPlan.requiredKwh = totalNeedKwh;\n\n    let candidates = [];\n\n    for (let i=q; i<96; i++) {\n        let pvKwh = n(pvForecast[i],0);\n        let sellPrice = Number(todaySell[i]);\n\n        if (!isFinite(sellPrice)) continue;\n        if (pvKwh <= 0.05) continue;\n\n        candidates.push({\n            i,\n            pvKwh,\n            sellPrice,\n            score: sellPrice\n        });\n    }\n\n    // We charge during the lowest injectie-price PV quarters.\n    // This preserves higher injectie-price quarters for export.\n    candidates.sort((a,b) => a.score - b.score);\n\n    let picked = [];\n    let energyPicked = 0;\n\n    for (let c of candidates) {\n        if (energyPicked >= totalNeedKwh) break;\n        picked.push(c.i);\n        energyPicked += Math.min(c.pvKwh, BATTERY_MAX_CHARGE_W / 1000 / 4);\n    }\n\n    forecastPlan.selectedQuarters = picked;\n    forecastPlan.currentSelected = picked.includes(q);\n\n    if (totalNeedKwh <= 0.1) {\n        forecastPlan.holdNow = true;\n        forecastPlan.note = 'Forecast: battery already full enough';\n    }\n    else if (SOC <= FORECAST_RESERVE_SOC) {\n        forecastPlan.chargeNow = true;\n        forecastPlan.chargePowerW = BATTERY_MAX_CHARGE_W;\n        forecastPlan.note = 'Forecast: reserve SOC protection';\n    }\n    else if (forecastPlan.currentSelected) {\n        forecastPlan.chargeNow = true;\n        forecastPlan.chargePowerW = BATTERY_MAX_CHARGE_W;\n        forecastPlan.note = 'Forecast: selected cheap PV quarter';\n    }\n    else {\n        forecastPlan.holdNow = true;\n        forecastPlan.note = 'Forecast: preserving capacity for better charge window';\n    }\n\n    flow.set('forecast_charge_plan', forecastPlan);\n    flow.set('forecast_charge_selected_quarters', picked);\n    flow.set('forecast_charge_required_kwh', totalNeedKwh);\n} else {\n    flow.set('forecast_charge_plan', forecastPlan);\n}\n\n// Mark EV solar success if actual charging > 4kW for 2 minutes.\nlet successStart = n(flow.get('EV_success_timer_start'),0);\nif (connected && s.ev_enabled && Actual_P_EV > EV_SUCCESS_W) {\n    if (!successStart) flow.set('EV_success_timer_start', now);\n    else if (now - successStart > EV_SUCCESS_DURATION_MS) {\n        flow.set('EV_solar_charge_success_today', true);\n        flow.set('EV_solar_charge_success_day', todayKey);\n    }\n} else {\n    flow.set('EV_success_timer_start', 0);\n}\n\nlet evSuccessToday = flow.get('EV_solar_charge_success_today') === true;\n\n// Solar probe logic\nlet probeActive = flow.get('solar_probe_active') === true;\nlet probeStart = n(flow.get('solar_probe_start_ms'),0);\nlet probeLast = n(flow.get('solar_probe_last_ms'),0);\nlet probeAge = probeActive ? now - probeStart : 0;\n\nlet probeAllowed =\n    priceValid &&\n    buy >= 0 &&\n    s.solar_mode === 'AUTO' &&\n    connected &&\n    s.ev_enabled &&\n    !evSuccessToday;\n\nif (!probeAllowed) {\n    probeActive = false;\n    flow.set('solar_probe_active', false);\n}\n\nif (!probeActive && probeAllowed && (now - probeLast > SOLAR_PROBE_INTERVAL_MS)) {\n    probeActive = true;\n    probeStart = now;\n    probeAge = 0;\n    flow.set('solar_probe_active', true);\n    flow.set('solar_probe_start_ms', probeStart);\n    flow.set('solar_probe_last_ms', now);\n}\n\nlet probeInWarmup = probeActive && probeAge < SOLAR_PROBE_DURATION_MS;\nlet probeReady = probeActive && probeAge >= SOLAR_PROBE_DURATION_MS;\n\nif (probeReady) {\n    flow.set('solar_probe_active', false);\n    probeActive = false;\n}\n\nlet manualKw = (s.ev_enabled && connected && s.ev_manual) ? n(s.ev_manual_kw) : 0;\nif (manualKw > 0 && manualKw < EV_MIN_KW) manualKw = EV_MIN_KW;\n\nlet schedulerActive =\n    (flow.get('EV_timer_scheduler_active') === true) ||\n    (s.ev_timer_schedule_active === true);\n\nlet timerUntil = n(s.ev_timer_until, 0);\nlet legacyTimerActive = timerUntil > now;\n\nlet timerKw =\n    (s.ev_enabled && connected && s.ev_timer && (schedulerActive || legacyTimerActive))\n        ? n(s.ev_timer_kw)\n        : 0;\nif (timerKw > 0 && timerKw < EV_MIN_KW) timerKw = EV_MIN_KW;\n\nlet hasManualOrTimer = manualKw > 0 || timerKw > 0;\n\nif (s.ev_enabled && connected) {\n    evKwReq = Math.max(evKwReq, manualKw, timerKw);\n\n    if (s.ev_solar) {\n        if (probeInWarmup && !hasManualOrTimer && Actual_P_EV < 100) {\n            if (availableSolarForEV >= EV_MIN_KW * 1000) {\n                evKwReq = Math.max(evKwReq, clamp(availableSolarForEV / 1000, EV_MIN_KW, EV_MAX_KW));\n                reason.push('Solar check: enough surplus, start EV');\n            } else {\n                evKwReq = 0;\n                reason.push('Solar check active');\n            }\n        } else if (availableSolarForEV >= EV_MIN_KW * 1000) {\n            evKwReq = Math.max(evKwReq, clamp(availableSolarForEV / 1000, EV_MIN_KW, EV_MAX_KW));\n        } else if (!hasManualOrTimer) {\n            evKwReq = 0;\n        }\n    }\n\n    if (!(s.ev_solar && !hasManualOrTimer)) {\n        if (s.ems_mode==='WINTER' && priceValid && buy < n(s.winter_threshold)) {\n            evKwReq = Math.max(evKwReq, Math.max(EV_MIN_KW,n(s.winter_ev_kw)));\n        }\n        if (s.ems_mode==='SUMMER' && priceValid && buy < 0) {\n            evKwReq = Math.max(evKwReq,EV_MAX_KW);\n        }\n    }\n} else {\n    evKwReq = 0;\n}\n\nevKwReq = clamp(evKwReq,0,EV_MAX_KW);\nif (evKwReq > 0 && evKwReq < EV_MIN_KW) evKwReq = EV_MIN_KW;\n\nlet maxI = Math.max(I1,I2,I3);\nconst EV_OVERCURRENT_COOLDOWN_MS = 5 * 60 * 1000;\n\nlet evOverCurrentUntil = n(flow.get(\"EV_overcurrent_cooldown_until\"), 0);\n\nif (maxI > 38) {\n    evKwReq = 0;\n    safety = true;\n    evOverCurrentUntil = now + EV_OVERCURRENT_COOLDOWN_MS;\n    flow.set(\"EV_overcurrent_cooldown_until\", evOverCurrentUntil);\n    reason.push(\"EV stopped >38A, cooldown 5 min\");\n}\nelse if (now < evOverCurrentUntil) {\n    evKwReq = 0;\n    safety = true;\n    reason.push(\"EV cooldown active\");\n}\nelse if (maxI > 35) {\n    evKwReq = Math.max(0, evKwReq - 1);\n    safety = true;\n    reason.push(\"EV reduced >35A\");\n}\nelse {\n    flow.set(\"EV_overcurrent_cooldown_until\", 0);\n}\nif (evKwReq > 0 && evKwReq < EV_MIN_KW) evKwReq = 0;\n\n// -------------------------\n// Battery decision\n// -------------------------\nlet battMode = s.battery_mode;\nlet battW = 0;\nlet battControl = 'AUTO';\n\nif (battMode === 'CHARGE') {\n    battControl = 'CHARGE';\n    battW = -5000;\n}\nelse if (battMode === 'HOLD') {\n    battControl = 'HOLD';\n    battW = 0;\n}\nelse {\n    if (forecastActive) {\n        if (forecastPlan.chargeNow && SOC < 99.5) {\n            battControl = 'CHARGE';\n            battW = -clamp(forecastPlan.chargePowerW, FORECAST_MIN_CHARGE_W, BATTERY_MAX_CHARGE_W);\n            reason.push(forecastPlan.note);\n        } else {\n            battControl = 'HOLD';\n            battW = 0;\n            reason.push(forecastPlan.note);\n        }\n    }\n    else if (s.ems_mode === 'SUMMER' && priceValid && sell < 0) {\n    let maxChargeW = batteryChargeLimitBySoc(SOC);\n\n    if (maxChargeW > 0 && P_Grid_ctrl < -250) {\n        // Only charge when there is real solar export.\n        // This avoids charging from the grid.\n        battControl = 'CHARGE';\n        battW = -Math.min(maxChargeW, Math.abs(P_Grid_ctrl));\n        reason.push(`Negative injection: battery absorbs solar surplus, max ${maxChargeW}W`);\n    } else {\n        battControl = 'HOLD';\n        battW = 0;\n        reason.push('Negative injection: battery hold, no grid charging');\n    }\n}\n    else if (s.ems_mode==='SUMMER' && priceValid && buy<0) {\n        battControl='CHARGE';\n        battW=-5000;\n    }\n    else if (Actual_P_EV>100 || evKwReq>0) {\n        battControl='HOLD';\n        battW=0;\n    }\n    else {\n        battControl='AUTO';\n        battW=0;\n    }\n}\n\n// -------------------------\n// Solar decision\n// -------------------------\nlet solarKw = 10;\n\nif (s.ems_mode === 'SUMMER') {\n    s.solar_mode = 'AUTO';\n}\n\nif (s.solar_mode === 'MANUAL') {\n    solarKw = clamp(n(s.solar_kw,10),0,10);\n}\nelse {\n    if (connected && s.ev_enabled && s.ev_solar) {\n        solarKw = 10;\n        reason.push('Solar EV active: PV forced to max');\n    }\n    else if (probeActive) {\n        solarKw = 10;\n        reason.push('Solar probe active');\n    }\n    else if (forecastActive) {\n        solarKw = 10;\n        reason.push('Forecast based: PV open for export/charging');\n    }\n    else if (SOC < 95 && !(s.ems_mode === 'SUMMER' && priceValid && sell < 0)) {\n        solarKw = 10;\n        reason.push('Battery below 95%: PV forced to max');\n    }\n    else if (s.ems_mode === 'SUMMER' && priceValid && sell < 0) {\n        let minimumSolarKw = clamp((P_Home + 800) / 1000, 0.5, 10);\n        let gridError = GRID_TARGET_W - P_Grid_ctrl;\n        solarKw = prevSolarKw;\n\n        if (Math.abs(gridError) > GRID_DEADBAND_W) {\n            let step = clamp(Math.abs(gridError) / 1000, 0.2, SOLAR_STEP_KW);\n            solarKw += (gridError > 0) ? -step : step;\n        }\n\n        solarKw = Math.max(solarKw, minimumSolarKw);\n        solarKw = clamp(solarKw, 0.5, 10);\n\n        reason.push('Negative injection: solar limited but home covered');\n    }\n    else {\n        solarKw = 10;\n    }\n}\n\nflow.set('ems_solar_target_kw', solarKw);\n\nlet evA = evKwReq>0 ? clamp((evKwReq*1000)/(Math.sqrt(3)*400),6,16) : 0;\n\nflow.set('ems_ev_kw_target', evKwReq);\nflow.set('ems_ev_a_target', evA);\nflow.set('ems_battery_target_w', battW);\nflow.set('ems_battery_control', battControl);\nflow.set('ems_safety_active', safety);\nflow.set('ems_available_solar_for_ev_w', availableSolarForEV);\n\nlet evMsg = {payload:evA, topic:'EV current A'};\nlet batEnable = {payload:(battControl==='AUTO'?803:802), topic:'Battery external control'};\nlet batPower = {payload:battW, topic:'Battery power W'};\nlet solarMsg = {payload:solarKw, topic:'Solar limit kW'};\n\nlet probeText = probeActive\n    ? ` | ⚠️ SOLAR CHECK ACTIVE ${(Math.max(0, SOLAR_PROBE_DURATION_MS-probeAge)/1000).toFixed(0)}s`\n    : '';\n\nlet forecastText = forecastActive\n    ? ` | Forecast ON need ${n(forecastPlan.requiredKwh).toFixed(1)}kWh q${q} ${forecastPlan.currentSelected?'CHARGE':'HOLD'}`\n    : (s.forecast_based ? ' | Forecast waiting for PV/price data' : '');\n\nlet status = {\n    payload:`${s.ems_mode} | EV enabled ${s.ev_enabled?'ON':'OFF'} | EV target ${evKwReq.toFixed(1)}kW (${evA.toFixed(1)}A) | EV actual ${(Actual_P_EV/1000).toFixed(1)}kW | SolarForEV ${(availableSolarForEV/1000).toFixed(1)}kW | Batt ${battControl} | Solar ${solarKw.toFixed(1)}kW${forecastText}${probeText}${safety?' | SAFETY '+reason.join(', '): reason.length ? ' | '+reason.join(', ') : ''}`,\n    color:(safety||probeActive)?'orange':'green'\n};\n\nlet phase = {\n    payload:`L1 ${I1.toFixed(1)}A | L2 ${I2.toFixed(1)}A | L3 ${I3.toFixed(1)}A | EV ${Actual_I1_EV.toFixed(1)}/${Actual_I2_EV.toFixed(1)}/${Actual_I3_EV.toFixed(1)}A`,\n    color:Math.max(I1,I2,I3)>35?'red':'black'\n};\n\nconst THRESHOLD = 50;\n\nlet powerMsg = {\n    payload:{\n        grid_w:P_Grid,\n        pv_w:P_PV,\n        batt_w:P_Batt,\n        home_w:P_Home,\n        soc:SOC,\n        ev_w:Actual_P_EV,\n        total_load_w:P_Total_Load,\n        ev_target_kw:evKwReq,\n        ev_target_a:evA,\n        available_solar_for_ev_w:availableSolarForEV,\n        solar_target_kw:solarKw,\n        ev_enabled:s.ev_enabled,\n        ev_solar:s.ev_solar,\n        solar_probe_active:probeActive,\n        forecast_based:forecastActive,\n        forecast_plan:forecastPlan\n    },\n    P_Grid:P_Grid,\n    P_Batt:P_Batt,\n    P_PV:P_PV,\n    P_EV:Actual_P_EV,\n    Battery_Soc:SOC,\n    EV_Connected:connected,\n    P_Home:P_Home,\n    P_Total_Load_Including_EV:P_Total_Load\n};\n\npowerMsg.showPV_Home = P_PV > THRESHOLD && P_Home > THRESHOLD;\npowerMsg.showPV_EV = P_PV > THRESHOLD && Actual_P_EV > THRESHOLD;\npowerMsg.showPV_Batt = P_PV > THRESHOLD && P_Batt < -THRESHOLD;\npowerMsg.showPV_Grid = P_PV > THRESHOLD && P_Grid < -THRESHOLD;\npowerMsg.showBatt_Home = P_Batt > THRESHOLD && P_Home > THRESHOLD;\npowerMsg.showBatt_EV = P_Batt > THRESHOLD && Actual_P_EV > THRESHOLD;\npowerMsg.showBatt_Grid = P_Batt > THRESHOLD && P_Grid < -THRESHOLD;\npowerMsg.showGrid_Home = P_Grid > THRESHOLD && P_Home > THRESHOLD;\npowerMsg.showGrid_EV = P_Grid > THRESHOLD && Actual_P_EV > THRESHOLD;\npowerMsg.showGrid_Batt = P_Grid > THRESHOLD && P_Batt < -THRESHOLD;\n\nreturn [evMsg, batEnable, batPower, solarMsg, status, phase, powerMsg];",
+        "func": "/*\n## EMS Decision Framework\n\nThe EMS runs every 5 seconds and makes three coordinated decisions: EV charging power, battery control, and solar production limit.\n\n### 1. Operating modes\n\nThe EMS can run in three modes:\n\n* **SMA mode**: default/passive behavior.\n* **WINTER mode**: allows grid charging when the afname price is below the configured winter threshold.\n* **SUMMER mode**: activates automatic solar control and dynamic price-based optimization.\n\nIn SUMMER mode, solar control is forced to AUTO.\n\n### 2. EV connection and master enable logic\n\nWhen the EV is newly connected, the EMS automatically enables EV charging.\n\nThe EV sub-mode settings are restored from the previous connection:\n* Manual EV is restored to its previous on/off state.\n* Timer EV is restored to its previous on/off state.\n* Solar EV is restored to its previous on/off state.\n\nWhen the EV is disconnected, active EV charging controls are switched off for safety, but the previous sub-mode preferences are remembered.\n\nThe master toggle **Enable charging** always prevails during the current connection. If the user disables EV charging while the car is connected, the EV target is forced to 0 kW / 0 A and the EV remains disabled until either the user enables it again or the car is disconnected and reconnected.\n\n### 3. EV charging decision\n\nThe EMS first checks manual and scheduled EV charging:\n\n* Manual EV charging uses the configured manual kW value.\n* Timer EV charging only runs when the Timer EV toggle is enabled and the scheduler is currently active. The dashboard shows both the Timer EV setting and the live scheduler state.\n* Solar EV charging uses available surplus solar if enough power is available.\n\nThe minimum practical EV charging power is 4.2 kW. The maximum EV charging power is 11 kW.\n\nIf Solar EV charging is active, the EMS normally starts or continues EV charging only when enough surplus solar is available. To avoid rapid on/off switching during short cloud passages or load spikes, a temporary grid-import grace period is allowed:\n\n* Up to 500 W grid import is tolerated for up to 120 seconds.\n* Between 500 W and 2,000 W grid import is tolerated for up to 60 seconds.\n* Above 2,000 W grid import, Solar EV charging is stopped immediately.\n\nIf the afname price is negative, this overrides normal Solar EV logic and the EV is requested to charge at maximum power, provided the EV is connected and charging is enabled.\n\nSafety limits can reduce or stop EV charging:\n\n* Above 35 A phase current: EV charging is reduced.\n* Above 38 A phase current: EV charging is stopped and a cooldown period starts.\n\n### 4. Battery decision\n\nBattery control follows this priority:\n\n1. If the user manually selects **BAT CHARGE**, the battery is charged at 5 kW.\n2. If the user manually selects **BAT HOLD**, the battery is held at 0 W.\n3. If forecast-based charging is active, the forecast plan decides whether to charge or hold.\n4. If the afname price is negative and no EV charging is active, the battery charges at 5 kW.\n5. If the afname price is negative and EV charging is active, the EV is prioritized and the battery charge power is limited to the remaining L1 current headroom, so the total phase current stays below the EMS safety threshold.\n6. If the EV is charging or requested to charge under normal conditions, the battery is held to avoid discharging into the EV.\n7. Otherwise, the battery remains in AUTO.\n\n### 5. Forecast-based charging\n\nForecast-based charging is only available in SUMMER mode when valid price and PV forecast data are available.\n\nThe system estimates the energy still needed to fill the home battery, optionally adds the requested EV energy, and then selects the best future PV quarters based on the lowest injection prices. During selected quarters, the battery charges. Outside selected quarters, the battery is held to preserve capacity for better charging windows.\n\n### 6. Solar production decision\n\nSolar output is normally kept fully open at 10 kW, especially when:\n\n* Solar EV mode is active.\n* A solar probe is running.\n* Forecast-based charging is active.\n* Battery SoC is below 95%.\n\nHowever, negative injection pricing has the highest solar priority.\n\nIf the injection price is negative, the EMS sets the solar target to 0 kW. In this tariff setup, negative injection always implies negative afname, so the preferred action is to stop PV production and charge the battery and/or EV from the grid instead of exporting solar power at a negative price.\n\nWhen injection pricing is not negative, short temporary grid import is allowed during Solar EV charging to avoid rapid switching:\n\n* Up to 500 W import for 120 seconds.\n* Up to 2,000 W import for 60 seconds.\n* Above 2,000 W import, the solar-driven load is stopped or reduced.\n\n### 7. Safety and anti-cycling logic\n\nThe EMS uses two types of protection:\n\n* **Electrical safety protection**: phase currents are monitored continuously. EV charging is reduced above 35 A and stopped above 38 A with a cooldown period.\n* **Anti-cycling protection**: during Solar EV charging, the EMS allows short periods of grid import before stopping the EV. This prevents the EV or battery from repeatedly switching on and off due to short clouds, measurement lag, or temporary household load spikes.\n\n### 8. Output commands\n\nAt the end of each cycle, the EMS writes:\n\n* EV current target in amps.\n* Battery external-control mode.\n* Battery power target in watts.\n* Solar production limit in kW.\n* Status and diagnostic information for the dashboard.\n\nThe EMS therefore acts as a central decision engine: it reads measurements and prices, applies mode-specific priorities, anti-cycling rules, and safety limits, then sends coordinated commands to the EV charger, battery inverter, and solar inverter.\n*/\n\nfunction n(v, d = 0) { v = Number(v); return isFinite(v) ? v : d; }\nfunction clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }\nfunction validArray(a) {\n    if (!Array.isArray(a) || a.length < 96) return false;\n    let nums = a.map(Number).filter(isFinite);\n    return nums.length >= 80 && !nums.every(v => v === 0);\n}\n\n// ---- TUNING SETTINGS ----\nconst HOME_AVG_N = 3;\nconst GRID_AVG_N = 2;\nconst BATT_AVG_N = 2;\n\nconst EV_MIN_KW = 4.2;\nconst EV_MAX_KW = 11;\nconst GRID_TARGET_W = 800;\nconst GRID_DEADBAND_W = 250;\nconst SOLAR_STEP_KW = 1.0;\n\nconst SOLAR_PROBE_INTERVAL_MS = 30 * 60 * 1000;\nconst SOLAR_PROBE_DURATION_MS = 5 * 60 * 1000;\nconst EV_SUCCESS_W = 4000;\nconst EV_SUCCESS_DURATION_MS = 2 * 60 * 1000;\n\nconst BATTERY_CAPACITY_KWH = 16;\nconst BATTERY_MAX_CHARGE_W = 5000;\nconst FORECAST_RESERVE_SOC = 15;\nconst FORECAST_MIN_CHARGE_W = 1000;\nconst SOLAR_IMPORT_SMALL_W = 500;\nconst SOLAR_IMPORT_LARGE_W = 2000;\nconst SOLAR_IMPORT_SMALL_TIME_MS = 120000;\nconst SOLAR_IMPORT_LARGE_TIME_MS = 60000;\n// -------------------------\n\nlet s = flow.get('ems_settings') || {\n    ems_mode: 'SMA',\n    battery_mode: 'AUTO',\n    solar_mode: 'AUTO',\n    solar_kw: 10,\n    ev_enabled: false,\n    ev_manual: false,\n    ev_manual_kw: 4,\n    ev_timer: false,\n    ev_timer_kw: 4,\n    ev_timer_minutes: 60,\n    ev_timer_schedule_active: false,\n    ev_solar: false,\n    winter_threshold: 0,\n    winter_ev_kw: 6,\n    forecast_based: false,\n    forecast_ev_enabled: false,\n    forecast_ev_kwh: 10\n};\n\nif (s.forecast_based === undefined) s.forecast_based = false;\nif (s.forecast_ev_enabled === undefined) s.forecast_ev_enabled = false;\nif (s.forecast_ev_kwh === undefined) s.forecast_ev_kwh = 10;\n\nif (s.ems_mode !== 'SUMMER') {\n    s.forecast_based = false;\n    s.forecast_ev_enabled = false;\n    s.forecast_ev_kwh = 10;\n}\n\nif (s.ems_mode === 'SUMMER') {\n    s.solar_mode = 'AUTO';\n}\n\nlet now = Date.now();\nlet nowDate = new Date();\nlet todayKey = nowDate.toISOString().slice(0, 10);\n\nif (flow.get('EV_solar_charge_success_day') !== todayKey) {\n    flow.set('EV_solar_charge_success_today', false);\n    flow.set('EV_solar_charge_success_day', todayKey);\n    flow.set('EV_success_timer_start', 0);\n}\n\nlet connected = flow.get('EV_Connected') === true;\nlet prevConnected = flow.get('EV_Connected_previous') === true;\n\nlet userDisabledThisConnection = flow.get('EV_user_disabled_this_connection') === true;\n\nif (s.ev_manual_pre_disconnect === undefined) s.ev_manual_pre_disconnect = !!s.ev_manual;\nif (s.ev_timer_pre_disconnect === undefined) s.ev_timer_pre_disconnect = !!s.ev_timer;\nif (s.ev_solar_pre_disconnect === undefined) s.ev_solar_pre_disconnect = !!s.ev_solar;\n\n// First connection event: enable EV charging and restore previous EV sub-mode settings.\nif (connected && !prevConnected) {\n    s.ev_enabled = true;\n    flow.set('EV_user_disabled_this_connection', false);\n\n    s.ev_manual = !!s.ev_manual_pre_disconnect;\n    s.ev_timer = !!s.ev_timer_pre_disconnect;\n    s.ev_solar = !!s.ev_solar_pre_disconnect;\n\n    flow.set('EV_solar_charge_success_today', false);\n    flow.set('EV_success_timer_start', 0);\n}\n\n// Disconnection event: remember previous EV sub-mode settings, then switch active controls off.\nif (!connected && prevConnected) {\n    s.ev_manual_pre_disconnect = !!s.ev_manual;\n    s.ev_timer_pre_disconnect = !!s.ev_timer;\n    s.ev_solar_pre_disconnect = !!s.ev_solar;\n\n    s.ev_enabled = false;\n    s.ev_manual = false;\n    s.ev_timer = false;\n    s.ev_solar = false;\n    s.ev_timer_schedule_active = false;\n\n    flow.set('EV_timer_scheduler_active', false);\n    flow.set('EV_solar_charge_success_today', false);\n    flow.set('EV_success_timer_start', 0);\n    flow.set('EV_user_disabled_this_connection', false);\n    flow.set('ems_ev_kw_target', 0);\n    flow.set('ems_ev_a_target', 0);\n}\n\n// Manual disable while connected must still prevail until reconnect.\nif (connected && userDisabledThisConnection && !s.ev_enabled) {\n    s.ev_manual = false;\n    s.ev_timer = false;\n    s.ev_solar = false;\n}\n\nflow.set('EV_Connected_previous', connected);\nflow.set('ems_settings', s);\n\nlet P_Grid = n(flow.get('P_Grid'));\nlet P_PV = n(flow.get('P_PV'));\nlet P_Batt = n(flow.get('P_Batt'));\nlet SOC = n(flow.get('Battery_Soc'));\nlet P_Total_Load = P_PV + P_Grid + P_Batt;\n\nlet alfenPowerAge = now - n(flow.get('alfen_actual_power_last_good'), 0);\nlet alfenCurrentAge = now - n(flow.get('alfen_actual_current_last_good'), 0);\nlet alfenFresh = alfenPowerAge < 20000 || alfenCurrentAge < 20000;\n\nlet Actual_P_EV = connected && alfenFresh ? Math.max(0, n(flow.get('Actual_P_EV'))) : 0;\nlet Actual_I1_EV = connected && alfenCurrentAge < 20000 ? n(flow.get('Actual_I1_EV')) : 0;\nlet Actual_I2_EV = connected && alfenCurrentAge < 20000 ? n(flow.get('Actual_I2_EV')) : 0;\nlet Actual_I3_EV = connected && alfenCurrentAge < 20000 ? n(flow.get('Actual_I3_EV')) : 0;\n\nflow.set('Actual_P_EV', Actual_P_EV);\nflow.set('Actual_P_EV_estimated', false);\n\nlet P_Home_raw = Math.max(0, P_Total_Load - Actual_P_EV);\n\nfunction batteryChargeLimitBySoc(soc) {\n    soc = Number(soc);\n    if (!isFinite(soc)) return 0;\n\n    if (soc <= 95) return 5000;\n    if (soc <= 96) return 4000;\n    if (soc <= 97) return 3000;\n    if (soc <= 98) return 2000;\n    if (soc < 100) return 1000;\n\n    return 0;\n}\n\nfunction movingAvg(key, value, maxLen) {\n    value = n(value, null);\n    if (value === null || !isFinite(value)) return n(flow.get(key + '_avg'), 0);\n    let arr = flow.get(key + '_hist') || [];\n    if (!Array.isArray(arr)) arr = [];\n    arr.push(value);\n    while (arr.length > maxLen) arr.shift();\n    flow.set(key + '_hist', arr);\n    let avg = arr.reduce((a, b) => a + b, 0) / arr.length;\n    flow.set(key + '_avg', avg);\n    return avg;\n}\n\nlet P_Home = Math.round(movingAvg('P_Home_Consumption', P_Home_raw, HOME_AVG_N));\nlet P_Grid_ctrl = Math.round(movingAvg('P_Grid_ctrl', P_Grid, GRID_AVG_N));\nlet P_Batt_ctrl = Math.round(movingAvg('P_Batt_ctrl', P_Batt, BATT_AVG_N));\n\nlet I1 = n(flow.get('I1_PV')) + n(flow.get('I1_Grid')) + n(flow.get('I1_Batt'));\nlet I2 = n(flow.get('I2_PV')) + n(flow.get('I2_Grid')) + n(flow.get('I2_Batt'));\nlet I3 = n(flow.get('I3_PV')) + n(flow.get('I3_Grid')) + n(flow.get('I3_Batt'));\n\nflow.set('P_Home_Consumption', P_Home);\nflow.set('P_Total_Load_Including_EV', P_Total_Load);\n\nlet todayBuy = flow.get('day_price_array');\nlet todaySell = flow.get('day_price_array_injectie');\nlet priceValid = validArray(todayBuy) && validArray(todaySell);\nflow.set('price_data_valid', priceValid);\n\nlet q = nowDate.getHours() * 4 + Math.floor(nowDate.getMinutes() / 15);\nlet buy = priceValid ? Number(todayBuy[q]) : null;\nlet sell = priceValid ? Number(todaySell[q]) : null;\n\nlet pvForecast =\n    flow.get('ems_exportable_pv_forecast_quarters_today') ||\n    flow.get('ems_pv_forecast_corrected_quarters_today') ||\n    flow.get('pv_forecast_quarters_today') ||\n    [];\nlet pvForecastValid = Array.isArray(pvForecast) && pvForecast.length >= 96;\n\nlet safety = false;\nlet reason = [];\nlet evKwReq = 0;\n\nlet prevSolarKw = n(flow.get('ems_solar_target_kw'), n(s.solar_kw, 10));\n\nlet exportW = Math.max(0, -P_Grid_ctrl);\nlet batteryChargingW = Math.max(0, -P_Batt_ctrl);\nlet availableSolarForEV = Math.max(0, Actual_P_EV + exportW + batteryChargingW - GRID_TARGET_W);\n\nfunction allowTemporaryGridImport(key) {\n    let importW = Math.max(0, P_Grid_ctrl);\n    let start = n(flow.get(key), 0);\n\n    if (importW <= 0) {\n        flow.set(key, 0);\n        return true;\n    }\n\n    if (!start) {\n        start = now;\n        flow.set(key, start);\n    }\n\n    let age = now - start;\n\n    if (importW <= SOLAR_IMPORT_SMALL_W) {\n        return age <= SOLAR_IMPORT_SMALL_TIME_MS;\n    }\n\n    if (importW <= SOLAR_IMPORT_LARGE_W) {\n        return age <= SOLAR_IMPORT_LARGE_TIME_MS;\n    }\n\n    return false;\n}\n\nif (connected && !s.ev_enabled) {\n    evKwReq = 0;\n    flow.set('ems_ev_kw_target', 0);\n    flow.set('ems_ev_a_target', 0);\n}\n\nif (!connected || !s.ev_enabled) {\n    evKwReq = 0;\n}\n\n// -------------------------\n// Forecast-based planning\n// -------------------------\nlet forecastActive =\n    s.ems_mode === 'SUMMER' &&\n    s.forecast_based === true &&\n    priceValid &&\n    pvForecastValid;\n\nlet forecastPlan = {\n    active: forecastActive,\n    valid: pvForecastValid,\n    q,\n    chargeNow: false,\n    holdNow: false,\n    chargePowerW: 0,\n    requiredKwh: 0,\n    selectedQuarters: [],\n    currentSelected: false,\n    note: ''\n};\n\nif (forecastActive) {\n    let socKwh = BATTERY_CAPACITY_KWH * clamp(SOC, 0, 100) / 100;\n\n    let battNeedKwh = Math.max(0, BATTERY_CAPACITY_KWH - socKwh);\n    let evNeedKwh = s.forecast_ev_enabled ? clamp(n(s.forecast_ev_kwh, 10), 10, 80) : 0;\n    let totalNeedKwh = battNeedKwh + evNeedKwh;\n\n    forecastPlan.requiredKwh = totalNeedKwh;\n\n    let candidates = [];\n\n    for (let i = q; i < 96; i++) {\n        let pvKwh = n(pvForecast[i], 0);\n        let sellPrice = Number(todaySell[i]);\n\n        if (!isFinite(sellPrice)) continue;\n        if (pvKwh <= 0.05) continue;\n\n        candidates.push({\n            i,\n            pvKwh,\n            sellPrice,\n            score: sellPrice\n        });\n    }\n\n    candidates.sort((a, b) => a.score - b.score);\n\n    let picked = [];\n    let energyPicked = 0;\n\n    for (let c of candidates) {\n        if (energyPicked >= totalNeedKwh) break;\n        picked.push(c.i);\n        energyPicked += Math.min(c.pvKwh, BATTERY_MAX_CHARGE_W / 1000 / 4);\n    }\n\n    forecastPlan.selectedQuarters = picked;\n    forecastPlan.currentSelected = picked.includes(q);\n\n    if (totalNeedKwh <= 0.1) {\n        forecastPlan.holdNow = true;\n        forecastPlan.note = 'Forecast: battery already full enough';\n    }\n    else if (SOC <= FORECAST_RESERVE_SOC) {\n        forecastPlan.chargeNow = true;\n        forecastPlan.chargePowerW = BATTERY_MAX_CHARGE_W;\n        forecastPlan.note = 'Forecast: reserve SOC protection';\n    }\n    else if (forecastPlan.currentSelected) {\n        forecastPlan.chargeNow = true;\n        forecastPlan.chargePowerW = BATTERY_MAX_CHARGE_W;\n        forecastPlan.note = 'Forecast: selected cheap PV quarter';\n    }\n    else {\n        forecastPlan.holdNow = true;\n        forecastPlan.note = 'Forecast: preserving capacity for better charge window';\n    }\n\n    flow.set('forecast_charge_plan', forecastPlan);\n    flow.set('forecast_charge_selected_quarters', picked);\n    flow.set('forecast_charge_required_kwh', totalNeedKwh);\n} else {\n    flow.set('forecast_charge_plan', forecastPlan);\n}\n\nlet successStart = n(flow.get('EV_success_timer_start'), 0);\nif (connected && s.ev_enabled && Actual_P_EV > EV_SUCCESS_W) {\n    if (!successStart) flow.set('EV_success_timer_start', now);\n    else if (now - successStart > EV_SUCCESS_DURATION_MS) {\n        flow.set('EV_solar_charge_success_today', true);\n        flow.set('EV_solar_charge_success_day', todayKey);\n    }\n} else {\n    flow.set('EV_success_timer_start', 0);\n}\n\nlet evSuccessToday = flow.get('EV_solar_charge_success_today') === true;\n\nlet probeActive = flow.get('solar_probe_active') === true;\nlet probeStart = n(flow.get('solar_probe_start_ms'), 0);\nlet probeLast = n(flow.get('solar_probe_last_ms'), 0);\nlet probeAge = probeActive ? now - probeStart : 0;\n\nlet probeAllowed =\n    priceValid &&\n    buy >= 0 &&\n    s.solar_mode === 'AUTO' &&\n    connected &&\n    s.ev_enabled &&\n    !evSuccessToday;\n\nif (!probeAllowed) {\n    probeActive = false;\n    flow.set('solar_probe_active', false);\n}\n\nif (!probeActive && probeAllowed && (now - probeLast > SOLAR_PROBE_INTERVAL_MS)) {\n    probeActive = true;\n    probeStart = now;\n    probeAge = 0;\n    flow.set('solar_probe_active', true);\n    flow.set('solar_probe_start_ms', probeStart);\n    flow.set('solar_probe_last_ms', now);\n}\n\nlet probeInWarmup = probeActive && probeAge < SOLAR_PROBE_DURATION_MS;\nlet probeReady = probeActive && probeAge >= SOLAR_PROBE_DURATION_MS;\n\nif (probeReady) {\n    flow.set('solar_probe_active', false);\n    probeActive = false;\n}\n\nlet manualKw = (s.ev_enabled && connected && s.ev_manual) ? n(s.ev_manual_kw) : 0;\nif (manualKw > 0 && manualKw < EV_MIN_KW) manualKw = EV_MIN_KW;\n\nlet schedulerActive =\n    (flow.get('EV_timer_scheduler_active') === true) ||\n    (s.ev_timer_schedule_active === true);\n\n// Store one single source of truth for diagnostics/dashboard.\ns.ev_timer_schedule_active = schedulerActive;\nflow.set('EV_timer_scheduler_active', schedulerActive);\n\nlet timerKw =\n    (s.ev_enabled && connected && s.ev_timer && schedulerActive)\n        ? n(s.ev_timer_kw)\n        : 0;\nif (timerKw > 0 && timerKw < EV_MIN_KW) timerKw = EV_MIN_KW;\n\nlet hasManualOrTimer = manualKw > 0 || timerKw > 0;\n\nif (s.ev_enabled && connected) {\n    evKwReq = Math.max(evKwReq, manualKw, timerKw);\n\n    if (s.ev_solar) {\n        if (probeInWarmup && !hasManualOrTimer && Actual_P_EV < 100) {\n            if (availableSolarForEV >= EV_MIN_KW * 1000) {\n                evKwReq = Math.max(evKwReq, clamp(availableSolarForEV / 1000, EV_MIN_KW, EV_MAX_KW));\n                reason.push('Solar check: enough surplus, start EV');\n            } else {\n                evKwReq = 0;\n                reason.push('Solar check active');\n            }\n        } else if (availableSolarForEV >= EV_MIN_KW * 1000) {\n    flow.set('EV_solar_import_grace_start', 0);\n    evKwReq = Math.max(evKwReq, clamp(availableSolarForEV / 1000, EV_MIN_KW, EV_MAX_KW));\n}\nelse if (!hasManualOrTimer) {\n    let prevEvKw = n(flow.get('ems_ev_kw_target'), 0);\n\n    if (prevEvKw > 0 && allowTemporaryGridImport('EV_solar_import_grace_start')) {\n        evKwReq = Math.max(EV_MIN_KW, prevEvKw);\n        reason.push('Solar EV grace: temporary grid import allowed');\n    } else {\n        evKwReq = 0;\n        flow.set('EV_solar_import_grace_start', 0);\n        reason.push('Solar EV stopped: import grace expired');\n    }\n}\n    }\n\n    // Negative afname price always wins: charge EV at max if connected/enabled.\n    if (s.ems_mode === 'SUMMER' && priceValid && buy < 0) {\n        evKwReq = Math.max(evKwReq, EV_MAX_KW);\n    }\n    else if (!(s.ev_solar && !hasManualOrTimer)) {\n        if (s.ems_mode === 'WINTER' && priceValid && buy < n(s.winter_threshold)) {\n            evKwReq = Math.max(evKwReq, Math.max(EV_MIN_KW, n(s.winter_ev_kw)));\n        }\n    }\n} else {\n    evKwReq = 0;\n}\n\nevKwReq = clamp(evKwReq, 0, EV_MAX_KW);\nif (evKwReq > 0 && evKwReq < EV_MIN_KW) evKwReq = EV_MIN_KW;\n\nlet maxI = Math.max(I1, I2, I3);\nconst EV_OVERCURRENT_COOLDOWN_MS = 5 * 60 * 1000;\n\nlet evOverCurrentUntil = n(flow.get(\"EV_overcurrent_cooldown_until\"), 0);\n\nif (maxI > 38) {\n    evKwReq = 0;\n    safety = true;\n    evOverCurrentUntil = now + EV_OVERCURRENT_COOLDOWN_MS;\n    flow.set(\"EV_overcurrent_cooldown_until\", evOverCurrentUntil);\n    reason.push(\"EV stopped >38A, cooldown 5 min\");\n}\nelse if (now < evOverCurrentUntil) {\n    evKwReq = 0;\n    safety = true;\n    reason.push(\"EV cooldown active\");\n}\nelse if (maxI > 35) {\n    evKwReq = Math.max(0, evKwReq - 1);\n    safety = true;\n    reason.push(\"EV reduced >35A\");\n}\nelse {\n    flow.set(\"EV_overcurrent_cooldown_until\", 0);\n}\nif (evKwReq > 0 && evKwReq < EV_MIN_KW) evKwReq = 0;\n\n// -------------------------\n// Battery decision\n// -------------------------\n// -------------------------\n// Battery decision\n// -------------------------\nlet battMode = s.battery_mode;\nlet battW = 0;\nlet battControl = 'AUTO';\n\nif (battMode === 'CHARGE') {\n    battControl = 'CHARGE';\n    battW = -5000;\n}\nelse if (battMode === 'HOLD') {\n    battControl = 'HOLD';\n    battW = 0;\n}\nelse {\n    \n    // Negative afname has priority over forecast and over \"EV active = hold\".\n    if (s.ems_mode === 'SUMMER' && priceValid && buy < 0) {\n        if (connected && s.ev_enabled && evKwReq > 0) {\n            const BATTERY_L1_CURRENT_LIMIT_A = 34;\n            const BATTERY_MIN_CHARGE_W = 500;\n            const BATTERY_MAX_CHARGE_W_LOCAL = batteryChargeLimitBySoc(SOC);\n\n            let evCurrentA = clamp(\n                (evKwReq * 1000) / (Math.sqrt(3) * 400),\n                0,\n                16\n            );\n\n           let batteryChargeCurrentA = Math.max(0, -P_Batt_ctrl / 230);\n\n// I1 already includes the actual EV current.\n// So remove the actual EV current first, then reserve room for the EV target.\nlet actualEvCurrentA = Actual_P_EV > 100\n    ? clamp(Actual_P_EV / (Math.sqrt(3) * 400), 0, 16)\n    : 0;\n\nlet currentWithoutBatteryAndEvA =\n    I1 - batteryChargeCurrentA - actualEvCurrentA;\n\nlet remainingBatteryCurrentA =\n    BATTERY_L1_CURRENT_LIMIT_A -\n    currentWithoutBatteryAndEvA -\n    evCurrentA;\n            let allowedBatteryChargeW =\n                Math.floor(remainingBatteryCurrentA * 230 / 100) * 100;\n\n            allowedBatteryChargeW = clamp(\n                allowedBatteryChargeW,\n                0,\n                BATTERY_MAX_CHARGE_W_LOCAL\n            );\n\n            if (allowedBatteryChargeW >= BATTERY_MIN_CHARGE_W) {\n                battControl = 'CHARGE';\n                battW = -allowedBatteryChargeW;\n                reason.push(`Negative afname: EV max, battery charging ${allowedBatteryChargeW}W with remaining L1 headroom`);\n            } else {\n                battControl = 'HOLD';\n                battW = 0;\n                reason.push('Negative afname: EV max, no L1 headroom for battery');\n            }\n        } else {\n            battControl = 'CHARGE';\n            battW = -batteryChargeLimitBySoc(SOC);\n            reason.push('Negative afname: battery charging');\n        }\n    }\n    else if (forecastActive) {\n        if (forecastPlan.chargeNow && SOC < 99.5) {\n            battControl = 'CHARGE';\n            battW = -clamp(forecastPlan.chargePowerW, FORECAST_MIN_CHARGE_W, BATTERY_MAX_CHARGE_W);\n            reason.push(forecastPlan.note);\n        } else {\n            battControl = 'HOLD';\n            battW = 0;\n            reason.push(forecastPlan.note);\n        }\n    }\n    else if (Actual_P_EV > 100 || evKwReq > 0) {\n        battControl = 'HOLD';\n        battW = 0;\n        reason.push('EV active: battery held');\n    }\n    else {\n        battControl = 'AUTO';\n        battW = 0;\n    }\n}\n\n// -------------------------\n// Solar decision\n// -------------------------\nlet solarKw = 10;\n\nif (s.ems_mode === 'SUMMER') {\n    s.solar_mode = 'AUTO';\n}\n\nif (s.solar_mode === 'MANUAL') {\n    solarKw = clamp(n(s.solar_kw, 10), 0, 10);\n}\nelse {\n    if (s.ems_mode === 'SUMMER' && priceValid && sell < 0) {\n    // Injectie negative means afname is also negative in your tariff logic.\n    // Therefore: charge battery/EV from grid, but avoid PV export.\n    solarKw = 0;\n\n    reason.push('Negative injection + negative afname: PV stopped, charge from grid');\n}\n    else if (connected && s.ev_enabled && s.ev_solar) {\n        solarKw = 10;\n        reason.push('Solar EV active: PV forced to max');\n    }\n    else if (probeActive) {\n        solarKw = 10;\n        reason.push('Solar probe active');\n    }\n    else if (forecastActive) {\n        solarKw = 10;\n        reason.push('Forecast based: PV open for export/charging');\n    }\n    else if (SOC < 95) {\n        solarKw = 10;\n        reason.push('Battery below 95%: PV forced to max');\n    }\n    else {\n        solarKw = 10;\n    }\n}\n\nflow.set('ems_solar_target_kw', solarKw);\n\nlet evA = evKwReq > 0 ? clamp((evKwReq * 1000) / (Math.sqrt(3) * 400), 6, 16) : 0;\n\nif (!connected || !s.ev_enabled) {\n    evKwReq = 0;\n    evA = 0;\n}\n\nflow.set('ems_ev_kw_target', evKwReq);\nflow.set('ems_ev_a_target', evA);\nflow.set('ems_battery_target_w', battW);\nflow.set('ems_battery_control', battControl);\nflow.set('ems_safety_active', safety);\nflow.set('ems_available_solar_for_ev_w', availableSolarForEV);\n\nfunction tsText(ts) {\n    if (!ts || !isFinite(Number(ts))) return '--';\n    return new Date(Number(ts)).toLocaleTimeString('nl-BE', {\n        hour: '2-digit',\n        minute: '2-digit',\n        second: '2-digit'\n    });\n}\n\nlet evReason = 'Normal logic';\nlet batteryReason = 'Normal logic';\nlet solarReason = 'Normal logic';\n\nif (!connected) {\n    evReason = 'EV not connected';\n}\nelse if (!s.ev_enabled) {\n    evReason = 'EV master disabled';\n}\nelse if (s.ems_mode === 'SUMMER' && priceValid && buy < 0 && evKwReq > 0) {\n    evReason = 'Negative afname price: EV max charge';\n}\nelse if (s.ev_manual && manualKw > 0) {\n    evReason = `Manual EV: ${manualKw.toFixed(1)}kW`;\n}\nelse if (s.ev_timer && schedulerActive && timerKw > 0) {\n    evReason = `Timer EV active: ${timerKw.toFixed(1)}kW`;\n}\nelse if (s.ev_solar && evKwReq > 0) {\n    evReason = 'Solar EV: surplus/grace logic active';\n}\nelse if (s.ev_solar) {\n    evReason = 'Solar EV: waiting for sufficient surplus';\n}\n\nif (battControl === 'CHARGE' && battW < 0 && s.ems_mode === 'SUMMER' && priceValid && buy < 0 && connected && s.ev_enabled) {\n    batteryReason = 'Negative afname: EV priority, battery limited by L1 headroom';\n}\nelse if (battControl === 'CHARGE' && battW < 0 && s.ems_mode === 'SUMMER' && priceValid && buy < 0) {\n    batteryReason = 'Negative afname: battery charging';\n}\nelse if (forecastActive) {\n    batteryReason = forecastPlan.note || 'Forecast-based charging';\n}\nelse if (battControl === 'HOLD' && (Actual_P_EV > 100 || evKwReq > 0)) {\n    batteryReason = 'EV active: battery held';\n}\nelse if (battControl === 'HOLD') {\n    batteryReason = 'Battery hold mode';\n}\nelse if (battControl === 'AUTO') {\n    batteryReason = 'Battery AUTO';\n}\n\nif (s.ems_mode === 'SUMMER' && priceValid && sell < 0) {\n    solarReason = 'Negative injectie: PV stopped';\n}\nelse if (connected && s.ev_enabled && s.ev_solar) {\n    solarReason = 'Solar EV active: PV forced to max';\n}\nelse if (probeActive) {\n    solarReason = 'Solar probe active';\n}\nelse if (forecastActive) {\n    solarReason = 'Forecast active: PV open';\n}\nelse if (SOC < 95) {\n    solarReason = 'Battery below 95%: PV open';\n}\n\nlet nextProbeText = 'not scheduled';\nlet probeStatus = 'inactive';\n\nif (probeActive) {\n    let remainingMs = Math.max(0, SOLAR_PROBE_DURATION_MS - probeAge);\n    probeStatus = `active, ${Math.round(remainingMs / 1000)}s remaining`;\n    nextProbeText = 'probe running now';\n}\nelse if (probeAllowed) {\n    let nextProbeTs = Math.max(now, probeLast + SOLAR_PROBE_INTERVAL_MS);\n    nextProbeText = tsText(nextProbeTs);\n}\nelse {\n    probeStatus = 'not allowed now';\n}\n\nlet importGraceText = 'inactive';\nlet graceStart = n(flow.get('EV_solar_import_grace_start'), 0);\nif (graceStart > 0) {\n    let importW = Math.max(0, P_Grid_ctrl);\n    let ageSec = Math.round((now - graceStart) / 1000);\n    importGraceText = `${Math.round(importW)}W import, ${ageSec}s elapsed`;\n}\n\nlet decisionTrace = [];\n\ndecisionTrace.push(`${s.ems_mode} mode`);\n\nif (priceValid) {\n    decisionTrace.push(`Price data OK: afname ${buy.toFixed(2)}, injectie ${sell.toFixed(2)}`);\n} else {\n    decisionTrace.push('Price data invalid');\n}\n\nif (connected) decisionTrace.push('EV connected');\nelse decisionTrace.push('EV not connected');\n\nif (s.ev_enabled) decisionTrace.push('EV charging enabled');\nelse decisionTrace.push('EV charging disabled');\n\ndecisionTrace.push(evReason);\ndecisionTrace.push(batteryReason);\ndecisionTrace.push(solarReason);\n\nif (safety) {\n    decisionTrace.push('Safety intervention active');\n}\n\nflow.set('ems_decision_dashboard', {\n    lastDecisionTs: now,\n    nextDecisionTs: now + 5000,\n\n    mode: s.ems_mode,\n    priceValid,\n    buy,\n    sell,\n    quarter: q,\n\n    evConnected: connected,\n    evEnabled: s.ev_enabled,\n    evSolar: s.ev_solar,\n    evManual: s.ev_manual,\n    evManualKw: s.ev_manual_kw,\n    evTimer: s.ev_timer,\n    evTimerKw: s.ev_timer_kw,\n    schedulerActive,\n\n    batteryMode: s.battery_mode,\n    soc: SOC,\n\n    solarMode: s.solar_mode,\n\n    forecastBased: s.forecast_based,\n    forecastEvEnabled: s.forecast_ev_enabled,\n    forecastEvKwh: s.forecast_ev_kwh,\n\n    evTargetKw: evKwReq,\n    evTargetA: evA,\n    evActualW: Actual_P_EV,\n    evReason,\n\n    batteryTargetW: battW,\n    batteryControl: battControl,\n    batteryReason,\n\n    solarTargetKw: solarKw,\n    pvActualW: P_PV,\n    solarReason,\n\n    probeStatus,\n    nextProbeText,\n    importGraceText,\n\n    trace: decisionTrace,\n    safety\n});\n\nlet evMsg = { payload: evA, topic: 'EV current A' };\nlet batEnable = { payload: (battControl === 'AUTO' ? 803 : 802), topic: 'Battery external control' };\nlet batPower = { payload: battW, topic: 'Battery power W' };\nlet solarMsg = { payload: solarKw, topic: 'Solar limit kW' };\n\nlet probeText = probeActive\n    ? ` | ⚠️ SOLAR CHECK ACTIVE ${(Math.max(0, SOLAR_PROBE_DURATION_MS - probeAge) / 1000).toFixed(0)}s`\n    : '';\n\nlet forecastText = forecastActive\n    ? ` | Forecast ON need ${n(forecastPlan.requiredKwh).toFixed(1)}kWh q${q} ${forecastPlan.currentSelected ? 'CHARGE' : 'HOLD'}`\n    : (s.forecast_based ? ' | Forecast waiting for PV/price data' : '');\n\nlet status = {\n    payload: `${s.ems_mode} | EV enabled ${s.ev_enabled ? 'ON' : 'OFF'} | EV target ${evKwReq.toFixed(1)}kW (${evA.toFixed(1)}A) | EV actual ${(Actual_P_EV / 1000).toFixed(1)}kW | SolarForEV ${(availableSolarForEV / 1000).toFixed(1)}kW | Batt ${battControl} | Solar ${solarKw.toFixed(1)}kW${forecastText}${probeText}${safety ? ' | SAFETY ' + reason.join(', ') : reason.length ? ' | ' + reason.join(', ') : ''}`,\n    color: (safety || probeActive) ? 'orange' : 'green'\n};\n\nlet phase = {\n    payload: `L1 ${I1.toFixed(1)}A | L2 ${I2.toFixed(1)}A | L3 ${I3.toFixed(1)}A | EV ${Actual_I1_EV.toFixed(1)}/${Actual_I2_EV.toFixed(1)}/${Actual_I3_EV.toFixed(1)}A`,\n    color: Math.max(I1, I2, I3) > 35 ? 'red' : 'black'\n};\n\nconst THRESHOLD = 50;\n\nlet powerMsg = {\n    payload: {\n        grid_w: P_Grid,\n        pv_w: P_PV,\n        batt_w: P_Batt,\n        home_w: P_Home,\n        soc: SOC,\n        ev_w: Actual_P_EV,\n        total_load_w: P_Total_Load,\n        ev_target_kw: evKwReq,\n        ev_target_a: evA,\n        available_solar_for_ev_w: availableSolarForEV,\n        solar_target_kw: solarKw,\n        ev_enabled: s.ev_enabled,\n        ev_solar: s.ev_solar,\n        solar_probe_active: probeActive,\n        forecast_based: forecastActive,\n        forecast_plan: forecastPlan\n    },\n    P_Grid: P_Grid,\n    P_Batt: P_Batt,\n    P_PV: P_PV,\n    P_EV: Actual_P_EV,\n    Battery_Soc: SOC,\n    EV_Connected: connected,\n    P_Home: P_Home,\n    P_Total_Load_Including_EV: P_Total_Load\n};\n\npowerMsg.showPV_Home = P_PV > THRESHOLD && P_Home > THRESHOLD;\npowerMsg.showPV_EV = P_PV > THRESHOLD && Actual_P_EV > THRESHOLD;\npowerMsg.showPV_Batt = P_PV > THRESHOLD && P_Batt < -THRESHOLD;\npowerMsg.showPV_Grid = P_PV > THRESHOLD && P_Grid < -THRESHOLD;\npowerMsg.showBatt_Home = P_Batt > THRESHOLD && P_Home > THRESHOLD;\npowerMsg.showBatt_EV = P_Batt > THRESHOLD && Actual_P_EV > THRESHOLD;\npowerMsg.showBatt_Grid = P_Batt > THRESHOLD && P_Grid < -THRESHOLD;\npowerMsg.showGrid_Home = P_Grid > THRESHOLD && P_Home > THRESHOLD;\npowerMsg.showGrid_EV = P_Grid > THRESHOLD && Actual_P_EV > THRESHOLD;\npowerMsg.showGrid_Batt = P_Grid > THRESHOLD && P_Batt < -THRESHOLD;\n\nreturn [evMsg, batEnable, batPower, solarMsg, status, phase, powerMsg];",
         "outputs": 7,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1210,
-        "y": 2220,
+        "x": 1220,
+        "y": 2240,
         "wires": [
             [
                 "97a8e500c96c25e6",
@@ -2302,6 +2295,7 @@
         "id": "3b107f82ef05760e",
         "type": "inject",
         "z": "8dad7f9be4206a88",
+        "d": true,
         "name": "Battery power Modbus poll 15s",
         "props": [
             {
@@ -2319,11 +2313,11 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 150,
-        "y": 720,
+        "x": 190,
+        "y": 700,
         "wires": [
             [
-                "27a7c24d367870f4"
+                "ac4813c2aabc7187"
             ]
         ]
     },
@@ -2404,7 +2398,7 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "Battery power Modbus decoding",
-        "func": "function n(v,d=0){\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\n// User convention everywhere in this EMS:\n//   P_Batt > 0 = battery DISCHARGING to the home\n//   P_Batt < 0 = battery CHARGING\n//\n// The SBS Modbus PAC3 sign can differ by register/source/firmware. In this flow\n// we keep the sign as read because your current working state showed discharge\n// correctly as positive. If your battery displays the wrong sign, change only this\n// one line to: let P_net_batt_charge = -rawPac3;\nlet rawPac3 = n(msg.payload.PAC3, null);\n\nif (rawPac3 === null || !isFinite(rawPac3) || rawPac3 === 2147483647 || rawPac3 === -2147483648 || rawPac3 === 4294967295) {\n    node.warn(\"Invalid battery power from Modbus: \" + JSON.stringify(msg.payload));\n    return null; // keep previous good value\n}\n\nlet P_net_batt_charge = rawPac3;\n\n// Store a recent non-zero value. This protects the dashboard/home calculation\n// against occasional SBS read dropouts where the battery value briefly becomes 0.\nif (Math.abs(P_net_batt_charge) > 250) {\n    flow.set(\"P_Batt_last_nonzero\", P_net_batt_charge);\n    flow.set(\"P_Batt_last_nonzero_seen\", Date.now());\n}\n\nlet U1 = n(flow.get(\"U1\"), 230);\nif (U1 < 180 || U1 > 260) U1 = 230;\n\nlet I_net_batt_charge = Math.round((P_net_batt_charge / U1) * 10) / 10;\nlet soc = n(flow.get(\"Battery_Soc\"), n(flow.get(\"Battery_Charge\"), 0));\n\nmsg.payload = {\n    rawPac3,\n    P_net_batt_charge,\n    P_batt_charge: soc,\n    I_net_batt_charge,\n    P1_net_batt_charge: P_net_batt_charge,\n    P2_net_batt_charge: 0,\n    P3_net_batt_charge: 0\n};\nmsg.topic = \"Storage\";\n\nflow.set(\"P_Batt_raw_modbus\", rawPac3);\nflow.set(\"P_Batt\", P_net_batt_charge);\nflow.set(\"P1_Batt\", P_net_batt_charge);\nflow.set(\"P2_Batt\", 0);\nflow.set(\"P3_Batt\", 0);\nflow.set(\"I1_Batt\", I_net_batt_charge);\nflow.set(\"I2_Batt\", 0);\nflow.set(\"I3_Batt\", 0);\nflow.set(\"sma_battery_power_modbus_last_good\", Date.now());\nflow.set(\"diag_battery_read_ts\", Date.now());\n\nreturn msg;",
+        "func": "function n(v,d=0){\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\n// User convention everywhere in this EMS:\n//   P_Batt > 0 = battery DISCHARGING to the home\n//   P_Batt < 0 = battery CHARGING\n//\n// The SBS Modbus PAC3 sign can differ by register/source/firmware. In this flow\n// we keep the sign as read because your current working state showed discharge\n// correctly as positive. If your battery displays the wrong sign, change only this\n// one line to: let P_net_batt_charge = -rawPac3;\nlet rawPac3 = n(msg.payload.PAC3, null);\n\nif (rawPac3 === null || !isFinite(rawPac3) || rawPac3 === 2147483647 || rawPac3 === -2147483648 || rawPac3 === 4294967295) {\n    node.warn(\"Invalid battery power from Modbus: \" + JSON.stringify(msg.payload));\n    return null; // keep previous good value\n}\n\nlet P_net_batt_charge = rawPac3;\n\n// Store a recent non-zero value. This protects the dashboard/home calculation\n// against occasional SBS read dropouts where the battery value briefly becomes 0.\nif (Math.abs(P_net_batt_charge) > 250) {\n    flow.set(\"P_Batt_last_nonzero\", P_net_batt_charge);\n    flow.set(\"P_Batt_last_nonzero_seen\", Date.now());\n}\n\nlet U1 = n(flow.get(\"U1\"), 230);\nif (U1 < 180 || U1 > 260) U1 = 230;\n\nlet I_net_batt_charge = Math.round((P_net_batt_charge / U1) * 10) / 10;\nlet soc = n(flow.get(\"Battery_Soc\"), n(flow.get(\"Battery_Charge\"), 0));\n\nmsg.payload = {\n    rawPac3,\n    P_net_batt_charge,\n    P_batt_charge: soc,\n    I_net_batt_charge,\n    P1_net_batt_charge: P_net_batt_charge,\n    P2_net_batt_charge: 0,\n    P3_net_batt_charge: 0\n};\nmsg.topic = \"Storage\";\n\nflow.set(\"P_Batt_raw_modbus\", rawPac3);\nflow.set(\"P_Batt\", P_net_batt_charge);\nflow.set(\"P1_Batt\", P_net_batt_charge);\nflow.set(\"P2_Batt\", 0);\nflow.set(\"P3_Batt\", 0);\nflow.set(\"I1_Batt\", I_net_batt_charge);\nflow.set(\"I2_Batt\", 0);\nflow.set(\"I3_Batt\", 0);\nflow.set(\"sma_battery_power_modbus_last_good\", Date.now());\nflow.set(\"diag_battery_read_ts\", Date.now());\nflow.set(\"diag_battery_power_read_ts\", Date.now());\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2424,6 +2418,7 @@
         "id": "b91a6016289385f4",
         "type": "inject",
         "z": "8dad7f9be4206a88",
+        "d": true,
         "name": "Battery SoC Modbus poll 60s",
         "props": [
             {
@@ -2434,18 +2429,18 @@
                 "vt": "str"
             }
         ],
-        "repeat": "30",
+        "repeat": "60",
         "crontab": "",
         "once": true,
         "onceDelay": "4",
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 790,
+        "x": 170,
+        "y": 840,
         "wires": [
             [
-                "187d25434defe415"
+                "1a9ce42ff049922d"
             ]
         ]
     },
@@ -2470,8 +2465,8 @@
         "keepMsgProperties": false,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 430,
-        "y": 780,
+        "x": 450,
+        "y": 860,
         "wires": [
             [
                 "84646bfeb81e3d70",
@@ -2516,8 +2511,8 @@
         "fanOutMultipleResult": false,
         "setTopic": true,
         "outputs": 1,
-        "x": 510,
-        "y": 840,
+        "x": 750,
+        "y": 860,
         "wires": [
             [
                 "3450869d87248c0e",
@@ -2530,7 +2525,7 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "Battery SoC Modbus decoding",
-        "func": "let lastSoc = Number(flow.get('Battery_Soc'));\nlet hasLastSoc = isFinite(lastSoc) && lastSoc >= 0 && lastSoc <= 100;\n\nlet raw = msg.payload?.SoC ?? msg.payload?.data?.[0] ?? msg.payload?.[0] ?? msg.payload;\nraw = Number(raw);\n\nfunction returnLastGood(reason) {\n    let lastWarn = flow.get('battery_soc_invalid_warn_ts') || 0;\n\n    if (Date.now() - lastWarn > 300000) {\n        node.warn(reason + ', using previous SoC: ' + (hasLastSoc ? lastSoc : 'none'));\n        flow.set('battery_soc_invalid_warn_ts', Date.now());\n    }\n\n    if (hasLastSoc) {\n        flow.set('Battery_Soc', lastSoc);\n        flow.set('ems_battery_soc', lastSoc);\n        msg.payload = lastSoc;\n        msg.soc_fallback = true;\n        return msg;\n    }\n\n    return null;\n}\n\n// SMA can return 4294967295 or other invalid values.\nif (!isFinite(raw) || raw > 1000 || raw < 0) {\n    return returnLastGood('Invalid battery SoC raw value from Modbus: ' + JSON.stringify({ SoC: raw }));\n}\n\n// Some SMA Modbus values are returned as 1003 = 100.3%.\nlet soc = raw > 100 ? raw / 10 : raw;\n\nif (!isFinite(soc) || soc < 0 || soc > 100.5) {\n    return returnLastGood('Invalid battery SoC calculated value from Modbus: ' + JSON.stringify({ raw, soc }));\n}\n\nsoc = Math.min(100, Math.round(soc));\n\n// Extra anti-spike protection:\n// reject sudden SoC jumps larger than 5 percentage points unless the last value is missing.\nif (hasLastSoc && Math.abs(soc - lastSoc) > 5) {\n    return returnLastGood('Rejected suspicious battery SoC jump: ' + JSON.stringify({ lastSoc, soc, raw }));\n}\n\nflow.set('Battery_Soc', soc);\nflow.set('ems_battery_soc', soc);\nflow.set('Battery_Soc_last_good', soc);\nflow.set('battery_soc_last_seen', Date.now());\nflow.set(\"diag_battery_read_ts\", Date.now());\n\nmsg.payload = soc;\nmsg.soc_fallback = false;\nreturn msg;",
+        "func": "let now = Date.now();\n\nlet lastSoc = Number(flow.get('Battery_Soc'));\nlet hasLastSoc = isFinite(lastSoc) && lastSoc >= 0 && lastSoc <= 100;\n\nlet lastSeen = Number(flow.get('battery_soc_last_seen')) || 0;\nlet socReadWasStale = !lastSeen || (now - lastSeen > 10 * 60 * 1000); // 10 min\n\nlet raw = msg.payload?.SoC ?? msg.payload?.data?.[0] ?? msg.payload?.[0] ?? msg.payload;\nraw = Number(raw);\n\nfunction warnLimited(text) {\n    let lastWarn = flow.get('battery_soc_invalid_warn_ts') || 0;\n    if (now - lastWarn > 300000) {\n        node.warn(text);\n        flow.set('battery_soc_invalid_warn_ts', now);\n    }\n}\n\nfunction returnLastGood(reason) {\n    warnLimited(reason + ', using previous SoC: ' + (hasLastSoc ? lastSoc : 'none'));\n\n    flow.set('diag_battery_soc_read_status', 'err');\n\n    if (hasLastSoc) {\n        msg.payload = lastSoc;\n        msg.soc_fallback = true;\n        return msg;\n    }\n\n    return null;\n}\n\nif (!isFinite(raw) || raw > 1000 || raw < 0) {\n    return returnLastGood('Invalid battery SoC raw value from Modbus: ' + JSON.stringify({ SoC: raw }));\n}\n\nlet soc = raw > 100 ? raw / 10 : raw;\n\nif (!isFinite(soc) || soc < 0 || soc > 100.5) {\n    return returnLastGood('Invalid battery SoC calculated value from Modbus: ' + JSON.stringify({ raw, soc }));\n}\n\nsoc = Math.min(100, Math.round(soc));\n\n// Anti-spike protection:\n// Reject sudden jumps ONLY when the previous SoC read was fresh.\n// If SoC read was stale, accept the new value because the old one may be outdated.\nif (!socReadWasStale && hasLastSoc && Math.abs(soc - lastSoc) > 5) {\n    return returnLastGood('Rejected suspicious battery SoC jump: ' + JSON.stringify({ lastSoc, soc, raw }));\n}\n\nflow.set('Battery_Soc', soc);\nflow.set('ems_battery_soc', soc);\nflow.set('Battery_Soc_last_good', soc);\nflow.set('battery_soc_last_seen', now);\n\nflow.set(\"diag_battery_soc_read_ts\", now);\nflow.set(\"diag_battery_soc_read_status\", \"ok\");\n\nmsg.payload = soc;\nmsg.soc_fallback = false;\nmsg.soc_read_was_stale = socReadWasStale;\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2819,7 +2814,7 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "EMS Diagnostics Builder",
-        "func": "let now = Date.now();\n\nfunction n(v, d = 0) {\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\nfunction alive(ts, maxAge) {\n    ts = Number(ts);\n    return isFinite(ts) && ts > 0 && ((now - ts) < maxAge);\n}\n\nfunction status(isOk, isApplicable) {\n    if (!isApplicable) return \"na\";\n    return isOk ? \"ok\" : \"err\";\n}\n\nlet evConnected = flow.get(\"EV_Connected\") === true;\nlet evCharging = flow.get(\"EV_Charging\") === true;\n\nlet evTargetA = n(flow.get(\"ems_ev_a_target\"), 0);\nlet evTargetKw = n(flow.get(\"ems_ev_kw_target\"), 0);\n\nlet pvLimitKw = n(flow.get(\"ems_solar_target_kw\"), 10);\nlet pvWriteApplicable = pvLimitKw < 9.9;\n\nlet battTargetW = n(flow.get(\"ems_battery_target_w\"), 0);\nlet battControl = flow.get(\"ems_battery_control\") || \"AUTO\";\nlet battWriteApplicable = battControl !== \"AUTO\" || Math.abs(battTargetW) > 50;\n\n// Alfen read:\n// If EV_Connected is true, we KNOW the status read is working.\nlet alfenReadOk =\n    evConnected ||\n    alive(flow.get(\"diag_alfen_read_ts\"), 30000);\n\n// Alfen write:\n// Only applicable when we actually want to charge or stop an active session.\nlet alfenWriteApplicable =\n    evCharging ||\n    evTargetA > 0.1 ||\n    evTargetKw > 0.1;\n\nlet alfenWriteOk =\n    alive(flow.get(\"diag_alfen_write_ts\"), 120000);\n\nmsg.payload = {\n    pv_read_status: status(alive(flow.get(\"diag_pv_read_ts\"), 30000), true),\n    pv_write_status: status(alive(flow.get(\"diag_pv_write_ts\"), 120000), pvWriteApplicable),\n\n    batt_read_status: status(alive(flow.get(\"diag_battery_read_ts\"), 30000), true),\n    batt_write_status: status(alive(flow.get(\"diag_battery_write_ts\"), 120000), battWriteApplicable),\n\n    alfen_read_status: status(alfenReadOk, evConnected || alfenReadOk),\n    alfen_write_status: status(alfenWriteOk, alfenWriteApplicable),\n\n    pv_kw: Math.round(flow.get(\"P_PV\") || 0),\n    soc: Math.round(flow.get(\"Battery_Soc\") || 0),\n    ev_kw: Math.round((flow.get(\"Actual_P_EV\") || 0) / 1000 * 10) / 10,\n\n    pv_write_kw: flow.get(\"diag_pv_write_kw\") || pvLimitKw,\n    batt_write_value: flow.get(\"diag_battery_write_value\") || battTargetW,\n    alfen_write_value: flow.get(\"diag_alfen_write_value\") || evTargetA\n};\n\nreturn msg;",
+        "func": "let now = Date.now();\n\nfunction n(v, d = 0) {\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\nfunction alive(ts, maxAge) {\n    ts = Number(ts);\n    return isFinite(ts) && ts > 0 && ((now - ts) < maxAge);\n}\n\nfunction status(isOk, isApplicable) {\n    if (!isApplicable) return \"na\";\n    return isOk ? \"ok\" : \"err\";\n}\n\nlet evConnected = flow.get(\"EV_Connected\") === true;\nlet evCharging = flow.get(\"EV_Charging\") === true;\n\nlet evTargetA = n(flow.get(\"ems_ev_a_target\"), 0);\nlet evTargetKw = n(flow.get(\"ems_ev_kw_target\"), 0);\n\nlet pvLimitKw = n(flow.get(\"ems_solar_target_kw\"), 10);\nlet pvWriteApplicable = pvLimitKw < 9.9;\n\nlet battTargetW = n(flow.get(\"ems_battery_target_w\"), 0);\nlet battControl = flow.get(\"ems_battery_control\") || \"AUTO\";\nlet battWriteApplicable = battControl !== \"AUTO\" || Math.abs(battTargetW) > 50;\n\n// Alfen read:\n// If EV_Connected is true, we KNOW the status read is working.\nlet alfenReadOk =\n    evConnected ||\n    alive(flow.get(\"diag_alfen_read_ts\"), 30000);\n\n// Alfen write:\n// Only applicable when we actually want to charge or stop an active session.\nlet alfenWriteApplicable =\n    evCharging ||\n    evTargetA > 0.1 ||\n    evTargetKw > 0.1;\n\nlet alfenWriteOk =\n    alive(flow.get(\"diag_alfen_write_ts\"), 90000);\n\nmsg.payload = {\n    pv_read_status: status(alive(flow.get(\"diag_pv_read_ts\"), 30000), true),\n    pv_write_status: status(alive(flow.get(\"diag_pv_write_ts\"), 120000), pvWriteApplicable),\n\n    batt_read_status: status(\n    alive(flow.get(\"diag_battery_power_read_ts\"), 60000) &&\n    alive(flow.get(\"diag_battery_soc_read_ts\"), 120000),\n    true\n    ),\n    batt_write_status: status(alive(flow.get(\"diag_battery_write_ts\"), 120000), battWriteApplicable),\n\n    alfen_read_status: status(alfenReadOk, evConnected || alfenReadOk),\n    alfen_write_status: status(alfenWriteOk, alfenWriteApplicable),\n\n    pv_kw: Math.round(flow.get(\"P_PV\") || 0),\n    soc: Math.round(flow.get(\"Battery_Soc\") || 0),\n    ev_kw: Math.round((flow.get(\"Actual_P_EV\") || 0) / 1000 * 10) / 10,\n\n    pv_write_kw: flow.get(\"diag_pv_write_kw\") || pvLimitKw,\n    batt_write_value: flow.get(\"diag_battery_write_value\") || battTargetW,\n    alfen_write_value: flow.get(\"diag_alfen_write_value\") || evTargetA,\n    alfen_write_reason: flow.get(\"diag_alfen_write_reason\") || \"\",\n};\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2843,7 +2838,7 @@
         "order": 0,
         "width": 0,
         "height": 0,
-        "format": "<style>\n.diag-table { width:100%; border-collapse:collapse; font-family:Arial; font-size:13px; }\n.diag-table th, .diag-table td { padding:4px 5px; text-align:center; }\n.diag-table th:first-child, .diag-table td:first-child { text-align:left; }\n.diag-dot { display:inline-block; width:14px; height:14px; border-radius:50%; box-shadow: inset 0 0 4px rgba(0,0,0,0.25); }\n.diag-ok { background:#45c878; }\n.diag-err { background:#d8314a; }\n.diag-na { background:#d9d9d9; box-shadow:none; }\n.diag-small { font-size:11px; color:#666; }\n</style>\n\n<table class=\"diag-table\">\n    <tr>\n        <th>Device</th>\n        <th>Read</th>\n        <th>Write</th>\n        <th>Value</th>\n    </tr>\n\n    <tr>\n        <td>PV</td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.pv_read_status === 'ok', 'diag-err': msg.payload.pv_read_status === 'err', 'diag-na': msg.payload.pv_read_status === 'na'}\"></span></td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.pv_write_status === 'ok', 'diag-err': msg.payload.pv_write_status === 'err', 'diag-na': msg.payload.pv_write_status === 'na'}\"></span></td>\n        <td>\n            {{msg.payload.pv_kw}} W<br>\n            <span class=\"diag-small\">limit {{msg.payload.pv_write_kw}} kW</span>\n        </td>\n    </tr>\n\n    <tr>\n        <td>Battery</td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.batt_read_status === 'ok', 'diag-err': msg.payload.batt_read_status === 'err', 'diag-na': msg.payload.batt_read_status === 'na'}\"></span></td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.batt_write_status === 'ok', 'diag-err': msg.payload.batt_write_status === 'err', 'diag-na': msg.payload.batt_write_status === 'na'}\"></span></td>\n        <td>\n            {{msg.payload.soc}} %<br>\n            <span class=\"diag-small\">cmd {{msg.payload.batt_write_value}} W</span>\n        </td>\n    </tr>\n\n    <tr>\n        <td>Alfen EV</td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.alfen_read_status === 'ok', 'diag-err': msg.payload.alfen_read_status === 'err', 'diag-na': msg.payload.alfen_read_status === 'na'}\"></span></td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.alfen_write_status === 'ok', 'diag-err': msg.payload.alfen_write_status === 'err', 'diag-na': msg.payload.alfen_write_status === 'na'}\"></span></td>\n        <td>\n            {{msg.payload.ev_kw}} kW<br>\n            <span class=\"diag-small\">cmd {{msg.payload.alfen_write_value}} A</span>\n        </td>\n    </tr>\n</table>",
+        "format": "<style>\n.diag-table { width:100%; border-collapse:collapse; font-family:Arial; font-size:13px; }\n.diag-table th, .diag-table td { padding:4px 5px; text-align:center; }\n.diag-table th:first-child, .diag-table td:first-child { text-align:left; }\n.diag-dot { display:inline-block; width:14px; height:14px; border-radius:50%; box-shadow: inset 0 0 4px rgba(0,0,0,0.25); }\n.diag-ok { background:#45c878; }\n.diag-err { background:#d8314a; }\n.diag-na { background:#d9d9d9; box-shadow:none; }\n.diag-small { font-size:11px; color:#666; }\n</style>\n\n<table class=\"diag-table\">\n    <tr>\n        <th>Device</th>\n        <th>Read</th>\n        <th>Write</th>\n        <th>Value</th>\n    </tr>\n\n    <tr>\n        <td>PV</td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.pv_read_status === 'ok', 'diag-err': msg.payload.pv_read_status === 'err', 'diag-na': msg.payload.pv_read_status === 'na'}\"></span></td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.pv_write_status === 'ok', 'diag-err': msg.payload.pv_write_status === 'err', 'diag-na': msg.payload.pv_write_status === 'na'}\"></span></td>\n        <td>\n            {{msg.payload.pv_kw}} W<br>\n            <span class=\"diag-small\">limit {{msg.payload.pv_write_kw}} kW</span>\n        </td>\n    </tr>\n\n    <tr>\n        <td>Battery</td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.batt_read_status === 'ok', 'diag-err': msg.payload.batt_read_status === 'err', 'diag-na': msg.payload.batt_read_status === 'na'}\"></span></td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.batt_write_status === 'ok', 'diag-err': msg.payload.batt_write_status === 'err', 'diag-na': msg.payload.batt_write_status === 'na'}\"></span></td>\n        <td>\n            {{msg.payload.soc}} %<br>\n            <span class=\"diag-small\">cmd {{msg.payload.batt_write_value}} W</span>\n        </td>\n    </tr>\n\n    <tr>\n        <td>Alfen EV</td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.alfen_read_status === 'ok', 'diag-err': msg.payload.alfen_read_status === 'err', 'diag-na': msg.payload.alfen_read_status === 'na'}\"></span></td>\n        <td><span class=\"diag-dot\" ng-class=\"{'diag-ok': msg.payload.alfen_write_status === 'ok', 'diag-err': msg.payload.alfen_write_status === 'err', 'diag-na': msg.payload.alfen_write_status === 'na'}\"></span></td>\n        <td>\n            {{msg.payload.ev_kw}} kW<br>\n            <span style=\"font-size:11px;color:#666;\">\n                cmd {{msg.payload.alfen_write_value}} A\n                <br>\n                {{msg.payload.alfen_write_reason}}\n            </span>\n        </td>\n    </tr>\n</table>",
         "storeOutMessages": true,
         "fwdInMessages": true,
         "resendOnRefresh": true,
@@ -3296,7 +3291,7 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "Build Forecast.Solar URL",
-        "func": "// Forecast.Solar configuration.\n// IMPORTANT: update these values for your PV installation.\n// Forecast.Solar convention: azimuth 0 = south, -90 = east, 90 = west.\nconst LAT = 51.37;          // TODO: your latitude\nconst LON = 4.45;           // TODO: your longitude\nconst DECLINATION = 35;     // panel tilt in degrees\nconst AZIMUTH = 0;          // 0=south, -90=east, 90=west\nconst KWP = 17.0;           // installed PV peak power in kWp\n\nmsg.url = `https://api.forecast.solar/estimate/${LAT}/${LON}/${DECLINATION}/${AZIMUTH}/${KWP}`;\nmsg.method = 'GET';\nmsg.payload = null;\nreturn msg;",
+        "func": "// Forecast.Solar configuration.\n// IMPORTANT: update these values for your PV installation.\n// Forecast.Solar convention: azimuth 0 = south, -90 = east, 90 = west.\nconst LAT = 0.0; // EDIT: your latitude          // TODO: your latitude\nconst LON = 0.0; // EDIT: your longitude           // TODO: your longitude\nconst DECLINATION = 35;     // panel tilt in degrees\nconst AZIMUTH = 0;          // 0=south, -90=east, 90=west\nconst KWP = 0.0; // EDIT: your PV system size in kWp           // installed PV peak power in kWp\n\nmsg.url = `https://api.forecast.solar/estimate/${LAT}/${LON}/${DECLINATION}/${AZIMUTH}/${KWP}`;\nmsg.method = 'GET';\nmsg.payload = null;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3488,7 +3483,7 @@
         "type": "file",
         "z": "8dad7f9be4206a88",
         "name": "save EMS learning profile",
-        "filename": "/home/pi/ems_learning_profile.json",
+        "filename": "/home/YOUR_USER/ems_learning_profile.json",
         "filenameType": "str",
         "appendNewline": false,
         "createDir": true,
@@ -3530,7 +3525,7 @@
         "type": "file in",
         "z": "8dad7f9be4206a88",
         "name": "restore EMS learning profile",
-        "filename": "/home/pi/ems_learning_profile.json",
+        "filename": "/home/YOUR_USER/ems_learning_profile.json",
         "filenameType": "str",
         "format": "utf8",
         "chunk": false,
@@ -3911,7 +3906,7 @@
         "type": "function",
         "z": "8dad7f9be4206a88",
         "name": "Modbus Slave Max Current",
-        "func": "function n(v, d = 0) {\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\nconst EV_WRITE_MIN_INTERVAL_MS = 5000;\nconst EV_WRITE_HEARTBEAT_MS = 30 * 60 * 1000;\n\nlet currentA = n(msg.alfen_current_a, null);\nif (currentA === null || !isFinite(currentA)) return null;\n\ncurrentA = Math.max(0, Math.min(16, currentA));\ncurrentA = Math.round(currentA * 10) / 10;\n\nlet connected = flow.get(\"EV_Connected\") === true;\nlet charging = flow.get(\"EV_Charging\") === true;\nlet targetKw = n(flow.get(\"ems_ev_kw_target\"), 0);\n\nlet last = flow.get(\"last_alfen_current_write\") || {\n    currentA: null,\n    ts: 0\n};\n\nlet lastA = Number(last.currentA);\nlet lastTs = Number(last.ts) || 0;\nlet now = Date.now();\n\nlet wantsCharge = connected && (currentA > 0.1 || targetKw > 0.1 || charging);\nlet wasNonZero = isFinite(lastA) && lastA > 0.1;\n\nif (!wantsCharge && !wasNonZero) {\n    return null;\n}\n\nlet changed = !isFinite(lastA) || Math.abs(lastA - currentA) >= 0.1;\nlet heartbeatNeeded = currentA > 0.1 && (now - lastTs >= EV_WRITE_HEARTBEAT_MS);\n\nif (!changed && !heartbeatNeeded) {\n    return null;\n}\n\nif (now - lastTs < EV_WRITE_MIN_INTERVAL_MS) {\n    return null;\n}\n\nmsg.payload = {\n    value: msg.payload,\n    fc: 16,\n    unitid: 1,\n    address: 1210,\n    quantity: 2\n};\n\nflow.set(\"last_alfen_current_write\", {\n    currentA,\n    ts: now\n});\n\nflow.set(\"diag_alfen_write_ts\", now);\nflow.set(\"diag_alfen_write_value\", currentA);\nflow.set(\"diag_alfen_write_reason\", changed ? \"changed\" : \"heartbeat\");\n\nreturn msg;",
+        "func": "function n(v, d = 0) {\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\nconst EV_WRITE_MIN_INTERVAL_MS = 5000;\nconst EV_WRITE_HEARTBEAT_MS = 60 * 1000;\n\nlet currentA = n(msg.alfen_current_a, null);\nif (currentA === null || !isFinite(currentA)) return null;\n\ncurrentA = Math.max(0, Math.min(16, currentA));\ncurrentA = Math.round(currentA * 10) / 10;\n\nlet connected = flow.get(\"EV_Connected\") === true;\nlet charging = flow.get(\"EV_Charging\") === true;\nlet targetKw = n(flow.get(\"ems_ev_kw_target\"), 0);\n\nlet last = flow.get(\"last_alfen_current_write\") || {\n    currentA: null,\n    ts: 0\n};\n\nlet lastA = Number(last.currentA);\nlet lastTs = Number(last.ts) || 0;\nlet now = Date.now();\n\nlet wantsCharge = connected && (currentA > 0.1 || targetKw > 0.1 || charging);\nlet wasNonZero = isFinite(lastA) && lastA > 0.1;\n\nif (!wantsCharge && !wasNonZero) {\n    return null;\n}\n\nlet changed = !isFinite(lastA) || Math.abs(lastA - currentA) >= 0.1;\nlet heartbeatNeeded = wantsCharge && currentA > 0.1 && (now - lastTs >= EV_WRITE_HEARTBEAT_MS);\n\nif (!changed && !heartbeatNeeded) {\n    return null;\n}\n\nif (now - lastTs < EV_WRITE_MIN_INTERVAL_MS) {\n    return null;\n}\n\nmsg.payload = {\n    value: msg.payload,\n    fc: 16,\n    unitid: 1,\n    address: 1210,\n    quantity: 2\n};\n\nflow.set(\"last_alfen_current_write\", {\n    currentA,\n    ts: now\n});\n\nflow.set(\"diag_alfen_write_ts\", now);\nflow.set(\"diag_alfen_write_value\", currentA);\nflow.set(\"diag_alfen_write_reason\", changed ? \"changed\" : \"heartbeat\");\n\nreturn msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -3992,7 +3987,7 @@
         "type": "file in",
         "z": "8dad7f9be4206a88",
         "name": "restore EMS financial history",
-        "filename": "/home/pi/ems_financial_history.json",
+        "filename": "/home/YOUR_USER/ems_financial_history.json",
         "filenameType": "str",
         "format": "utf8",
         "chunk": false,
@@ -4080,7 +4075,7 @@
         "type": "file",
         "z": "8dad7f9be4206a88",
         "name": "save EMS financial history",
-        "filename": "/home/pi/ems_financial_history.json",
+        "filename": "/home/YOUR_USER/ems_financial_history.json",
         "filenameType": "str",
         "appendNewline": false,
         "createDir": true,
@@ -4145,6 +4140,712 @@
         "statusType": "auto",
         "x": 1300,
         "y": 2840,
+        "wires": []
+    },
+    {
+        "id": "1a9ce42ff049922d",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Battery Modbus poll gate",
+        "func": "let pauseUntil = Number(flow.get(\"battery_modbus_pause_until\")) || 0;\n\nif (Date.now() < pauseUntil) {\n    return null;\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 310,
+        "y": 920,
+        "wires": [
+            [
+                "187d25434defe415"
+            ]
+        ]
+    },
+    {
+        "id": "ac4813c2aabc7187",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Battery Modbus poll gate",
+        "func": "let pauseUntil = Number(flow.get(\"battery_modbus_pause_until\")) || 0;\n\nif (Date.now() < pauseUntil) {\n    return null;\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 780,
+        "wires": [
+            [
+                "27a7c24d367870f4"
+            ]
+        ]
+    },
+    {
+        "id": "48da4a1f6da62452",
+        "type": "inject",
+        "z": "8dad7f9be4206a88",
+        "name": "Battery Modbus watchdog 60s",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "10",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 980,
+        "wires": [
+            [
+                "5a179be61e7a4f67"
+            ]
+        ]
+    },
+    {
+        "id": "5a179be61e7a4f67",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Battery Modbus Watchdog",
+        "func": "let now = Date.now();\n\nfunction age(ts) {\n    ts = Number(ts) || 0;\n    return ts > 0 ? now - ts : Infinity;\n}\n\nfunction ageText(ms) {\n    if (!isFinite(ms)) return \"never\";\n    return Math.round(ms / 1000) + \"s\";\n}\n\nlet modbusPowerAge = age(flow.get(\"diag_battery_power_read_ts\"));\nlet modbusSocAge = age(flow.get(\"diag_battery_soc_read_ts\"));\nlet httpAge = age(flow.get(\"sma_battery_http_last_good\"));\n\nlet httpOk = isFinite(httpAge) && httpAge < 5 * 60 * 1000;\n\n// HTTP is allowed to rescue SoC freshness.\n// Power still comes from Modbus unless you set USE_HTTP_POWER_AS_PRIMARY=true.\nlet effectiveSocAge = Math.min(modbusSocAge, httpAge);\nlet effectivePowerAge = modbusPowerAge;\n\nlet stalePower = effectivePowerAge > 5 * 60 * 1000;\nlet staleSoc = effectiveSocAge > 5 * 60 * 1000;\n\nlet lastSoftReset = Number(flow.get(\"battery_modbus_soft_reset_ts\")) || 0;\nlet lastHardReset = Number(flow.get(\"battery_modbus_hard_reset_ts\")) || 0;\n\nlet warning = {\n    payload: \"\",\n    color: \"green\"\n};\n\nlet restart = null;\n\nif (!stalePower && !staleSoc) {\n    flow.set(\"battery_modbus_warning\", false);\n    warning.payload =\n        \"Battery data OK | Power \" + ageText(effectivePowerAge) +\n        \" | SoC \" + ageText(effectiveSocAge) +\n        (httpOk ? \" | HTTP fallback OK\" : \"\");\n    warning.color = \"green\";\n    return [warning, null];\n}\n\nflow.set(\"battery_modbus_warning\", true);\n\nwarning.payload =\n    \"WARNING: Battery data stale | Power \" +\n    ageText(effectivePowerAge) +\n    \" | SoC \" +\n    ageText(effectiveSocAge) +\n    \" | Modbus power \" +\n    ageText(modbusPowerAge) +\n    \" | Modbus SoC \" +\n    ageText(modbusSocAge) +\n    \" | HTTP \" +\n    ageText(httpAge);\n\nwarning.color = \"red\";\n\n// Only soft/hard reset when MODBUS POWER is stale.\n// Do not restart Node-RED just because Modbus SoC is stale if HTTP SoC is OK.\nlet stale10 = modbusPowerAge > 10 * 60 * 1000;\nlet stale20 = modbusPowerAge > 20 * 60 * 1000;\n\nif (stale10 && now - lastSoftReset > 10 * 60 * 1000) {\n    flow.set(\"battery_modbus_pause_until\", now + 10000);\n    flow.set(\"battery_modbus_soft_reset_ts\", now);\n    node.warn(\"Battery Modbus power stale >10 min: pausing battery polling for 10 seconds\");\n}\n\nif (stale20 && now - lastHardReset > 30 * 60 * 1000) {\n    flow.set(\"battery_modbus_hard_reset_ts\", now);\n    node.warn(\"Battery Modbus power stale >20 min: restarting Node-RED\");\n\n    restart = {\n        payload: \"sudo systemctl restart nodered\"\n    };\n}\n\nreturn [warning, restart];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 980,
+        "wires": [
+            [
+                "6ea5d9be4ed375c0",
+                "b7b027effa79382a"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "6ea5d9be4ed375c0",
+        "type": "ui_text",
+        "z": "8dad7f9be4206a88",
+        "group": "42adc8c27fe32a05",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "",
+        "label": "Battery Modbus",
+        "format": "<font color='{{msg.color}}'>{{msg.payload}}</font>",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 720,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "03c1885a2b12241c",
+        "type": "exec",
+        "z": "8dad7f9be4206a88",
+        "command": "",
+        "addpay": "",
+        "append": "",
+        "useSpawn": "false",
+        "timer": "",
+        "winHide": false,
+        "oldrc": false,
+        "name": "",
+        "x": 730,
+        "y": 1020,
+        "wires": [
+            [],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "ems_decision_refresh_001",
+        "type": "inject",
+        "z": "8dad7f9be4206a88",
+        "name": "EMS decision dashboard 5s",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 880,
+        "y": 2460,
+        "wires": [
+            [
+                "ems_decision_builder_001"
+            ]
+        ]
+    },
+    {
+        "id": "ems_decision_builder_001",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "EMS Decision Dashboard Builder",
+        "func": "function n(v,d=0){ v=Number(v); return isFinite(v)?v:d; }\nfunction yes(v){ return v ? 'YES' : 'NO'; }\nfunction fmtKw(v){ return n(v,0).toFixed(1) + ' kW'; }\nfunction fmtW(v){ return Math.round(n(v,0)) + ' W'; }\nfunction fmtPrice(v){ return isFinite(Number(v)) ? Number(v).toFixed(2) + ' c/kWh' : '--'; }\nfunction fmtTime(ts){\n    ts = Number(ts);\n    if (!isFinite(ts) || ts <= 0) return '--';\n    let d = new Date(ts);\n    return d.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});\n}\nfunction ageText(ts){\n    ts = Number(ts);\n    if (!isFinite(ts) || ts <= 0) return '--';\n    let sec = Math.max(0, Math.round((Date.now() - ts)/1000));\n    return sec + 's ago';\n}\n\nlet d = flow.get('ems_decision_dashboard') || {};\nlet s = flow.get('ems_settings') || {};\n\nmsg.payload = {\n    context: {\n        mode: d.mode || s.ems_mode || '--',\n        priceValid: d.priceValid === true,\n        buy: fmtPrice(d.buy),\n        sell: fmtPrice(d.sell),\n        quarter: d.quarter ?? '--',\n        evConnected: yes(d.evConnected),\n        evEnabled: yes(d.evEnabled),\n        evSolar: yes(d.evSolar),\n        evManual: yes(d.evManual) + ' / ' + fmtKw(d.evManualKw),\n        evTimer: yes(d.evTimer) + ' / ' + fmtKw(d.evTimerKw),\n        schedulerActive: yes(d.schedulerActive),\n        batteryMode: d.batteryMode || '--',\n        soc: Math.round(n(d.soc,0)) + '%',\n        solarMode: d.solarMode || '--',\n        forecastBased: yes(d.forecastBased),\n        forecastEv: yes(d.forecastEvEnabled) + ' / ' + n(d.forecastEvKwh,10) + ' kWh'\n    },\n    decisions: {\n        ev: {\n            target: fmtKw(d.evTargetKw),\n            amps: n(d.evTargetA,0).toFixed(1) + ' A',\n            actual: fmtKw(n(d.evActualW,0)/1000),\n            reason: d.evReason || '--',\n            status: d.evTargetKw > 0 ? 'ACTIVE' : 'IDLE'\n        },\n        battery: {\n            target: fmtW(d.batteryTargetW),\n            mode: d.batteryControl || '--',\n            reason: d.batteryReason || '--',\n            status: n(d.batteryTargetW,0) < -50 ? 'CHARGE' : (n(d.batteryTargetW,0) > 50 ? 'DISCHARGE' : 'HOLD/AUTO')\n        },\n        solar: {\n            target: fmtKw(d.solarTargetKw),\n            actual: fmtW(d.pvActualW),\n            reason: d.solarReason || '--',\n            status: n(d.solarTargetKw,10) < 0.1 ? 'STOPPED' : 'OPEN/LIMITED'\n        }\n    },\n    timing: {\n        lastDecision: fmtTime(d.lastDecisionTs),\n        lastDecisionAge: ageText(d.lastDecisionTs),\n        nextDecision: fmtTime(d.nextDecisionTs),\n        probeStatus: d.probeStatus || '--',\n        nextProbe: d.nextProbeText || '--',\n        importGrace: d.importGraceText || '--'\n    },\n    trace: Array.isArray(d.trace) ? d.trace : [],\n    safety: d.safety === true\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1110,
+        "y": 2460,
+        "wires": [
+            [
+                "ems_decision_template_001"
+            ]
+        ]
+    },
+    {
+        "id": "ems_decision_template_001",
+        "type": "ui_template",
+        "z": "8dad7f9be4206a88",
+        "group": "ems_decision_group_001",
+        "name": "EMS Decision Engine dashboard",
+        "order": 1,
+        "width": "6",
+        "height": "17",
+        "format": "<style>\n.ems-card { font-family:Arial; font-size:12px; line-height:1.35; }\n.ems-section { border:1px solid #e5e5e5; border-radius:8px; padding:8px; margin-bottom:8px; background:#fff; }\n.ems-title { font-weight:bold; font-size:14px; color:#0094CE; margin-bottom:6px; }\n.ems-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; }\n.ems-k { color:#666; }\n.ems-v { font-weight:bold; text-align:right; }\n.ems-decision-grid { display:grid; grid-template-columns:1fr; gap:6px; }\n.ems-decision { border-radius:7px; padding:7px; background:#f7f7f7; border-left:5px solid #bbb; }\n.ems-active { border-left-color:#45c878; }\n.ems-warn { border-left-color:#ff9800; }\n.ems-stop { border-left-color:#d8314a; }\n.ems-small { font-size:11px; color:#666; }\n.ems-trace { padding-left:0; margin:0; list-style:none; }\n.ems-trace li { padding:2px 0; }\n.ems-trace li:before { content:'✓ '; color:#45c878; font-weight:bold; }\n</style>\n\n<div class=\"ems-card\" ng-if=\"msg && msg.payload\">\n  <div class=\"ems-section\">\n    <div class=\"ems-title\">1. EMS Context</div>\n    <div class=\"ems-grid\">\n      <div class=\"ems-k\">Mode</div><div class=\"ems-v\">{{msg.payload.context.mode}}</div>\n      <div class=\"ems-k\">Price data</div><div class=\"ems-v\">{{msg.payload.context.priceValid ? 'OK' : 'INVALID'}}</div>\n      <div class=\"ems-k\">Afname</div><div class=\"ems-v\">{{msg.payload.context.buy}}</div>\n      <div class=\"ems-k\">Injectie</div><div class=\"ems-v\">{{msg.payload.context.sell}}</div>\n      <div class=\"ems-k\">Quarter</div><div class=\"ems-v\">{{msg.payload.context.quarter}}</div>\n      <div class=\"ems-k\">EV connected/enabled</div><div class=\"ems-v\">{{msg.payload.context.evConnected}} / {{msg.payload.context.evEnabled}}</div>\n      <div class=\"ems-k\">Manual EV</div><div class=\"ems-v\">{{msg.payload.context.evManual}}</div>\n      <div class=\"ems-k\">Timer EV</div><div class=\"ems-v\">{{msg.payload.context.evTimer}}</div>\n      <div class=\"ems-k\">Timer scheduler</div><div class=\"ems-v\">{{msg.payload.context.schedulerActive}}</div>\n      <div class=\"ems-k\">Solar EV</div><div class=\"ems-v\">{{msg.payload.context.evSolar}}</div>\n      <div class=\"ems-k\">Battery mode / SoC</div><div class=\"ems-v\">{{msg.payload.context.batteryMode}} / {{msg.payload.context.soc}}</div>\n      <div class=\"ems-k\">Solar mode</div><div class=\"ems-v\">{{msg.payload.context.solarMode}}</div>\n      <div class=\"ems-k\">Forecast</div><div class=\"ems-v\">{{msg.payload.context.forecastBased}}</div>\n      <div class=\"ems-k\">Forecast EV</div><div class=\"ems-v\">{{msg.payload.context.forecastEv}}</div>\n    </div>\n  </div>\n\n  <div class=\"ems-section\">\n    <div class=\"ems-title\">2. Current Decisions</div>\n    <div class=\"ems-decision-grid\">\n      <div class=\"ems-decision\" ng-class=\"{'ems-active': msg.payload.decisions.ev.status === 'ACTIVE', 'ems-stop': msg.payload.safety}\">\n        <b>EV:</b> {{msg.payload.decisions.ev.target}} / {{msg.payload.decisions.ev.amps}}\n        <span class=\"ems-small\">actual {{msg.payload.decisions.ev.actual}}</span><br>\n        <span class=\"ems-small\">{{msg.payload.decisions.ev.reason}}</span>\n      </div>\n      <div class=\"ems-decision\" ng-class=\"{'ems-active': msg.payload.decisions.battery.status === 'CHARGE'}\">\n        <b>Battery:</b> {{msg.payload.decisions.battery.mode}} / {{msg.payload.decisions.battery.target}}<br>\n        <span class=\"ems-small\">{{msg.payload.decisions.battery.reason}}</span>\n      </div>\n      <div class=\"ems-decision\" ng-class=\"{'ems-stop': msg.payload.decisions.solar.status === 'STOPPED', 'ems-active': msg.payload.decisions.solar.status !== 'STOPPED'}\">\n        <b>Solar:</b> {{msg.payload.decisions.solar.target}}\n        <span class=\"ems-small\">actual {{msg.payload.decisions.solar.actual}}</span><br>\n        <span class=\"ems-small\">{{msg.payload.decisions.solar.reason}}</span>\n      </div>\n    </div>\n  </div>\n\n  <div class=\"ems-section\">\n    <div class=\"ems-title\">3. Decision Trace & Timing</div>\n    <div class=\"ems-grid\" style=\"margin-bottom:6px;\">\n      <div class=\"ems-k\">Last decision</div><div class=\"ems-v\">{{msg.payload.timing.lastDecision}} ({{msg.payload.timing.lastDecisionAge}})</div>\n      <div class=\"ems-k\">Next EMS cycle</div><div class=\"ems-v\">{{msg.payload.timing.nextDecision}}</div>\n      <div class=\"ems-k\">Solar probe</div><div class=\"ems-v\">{{msg.payload.timing.probeStatus}}</div>\n      <div class=\"ems-k\">Next probe</div><div class=\"ems-v\">{{msg.payload.timing.nextProbe}}</div>\n      <div class=\"ems-k\">Import grace</div><div class=\"ems-v\">{{msg.payload.timing.importGrace}}</div>\n    </div>\n    <ul class=\"ems-trace\">\n      <li ng-repeat=\"t in msg.payload.trace track by $index\">{{t}}</li>\n    </ul>\n  </div>\n</div>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1360,
+        "y": 2460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "48a7c76b309f4973",
+        "type": "comment",
+        "z": "8dad7f9be4206a88",
+        "name": "SMA SBS HTTP battery fallback reader - edit IP/password in Build SMA login request",
+        "info": "Fallback reader for SMA Sunny Boy Storage battery values via /dyn/getValues.json. Intended primarily as a more reliable SoC fallback. By default it updates Battery_Soc and diagnostics, but it does NOT overwrite P_Batt unless USE_HTTP_POWER_AS_PRIMARY is set to true in the decoding node.",
+        "x": 450,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "169c21cef0834325",
+        "type": "inject",
+        "z": "8dad7f9be4206a88",
+        "name": "SBS HTTP battery poll 30s",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "10",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 300,
+        "wires": [
+            [
+                "df307e48f8ad42f0"
+            ]
+        ]
+    },
+    {
+        "id": "df307e48f8ad42f0",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Build SMA login request",
+        "func": "// EDIT THESE TWO VALUES\nconst SMA_SBS_IP = \"YOUR_SMA_BATTERY_IP\";\nconst SMA_PASSWORD = \"YOUR_SMA_PASSWORD_HERE\";\n\nlet sid = flow.get(\"sma_sbs_http_sid\");\nlet sidTs = Number(flow.get(\"sma_sbs_http_sid_ts\")) || 0;\nlet sidAge = Date.now() - sidTs;\n\n// Reuse SID for 10 minutes\nif (sid && sidAge < 10 * 60 * 1000) {\n    msg.sma_sbs_ip = SMA_SBS_IP;\n    msg.sid = sid;\n    msg.skipLogin = true;\n    return [null, msg];\n}\n\nmsg.sma_sbs_ip = SMA_SBS_IP;\nmsg.url = `https://${SMA_SBS_IP}/dyn/login.json`;\nmsg.method = \"POST\";\nmsg.headers = { \"Content-Type\": \"application/json\" };\nmsg.payload = { right: \"usr\", pass: SMA_PASSWORD };\n\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 300,
+        "wires": [
+            [
+                "1a4a19a46f1d44bb"
+            ],
+            [
+                "5f88fb63ae9f45c0"
+            ]
+        ]
+    },
+    {
+        "id": "1a4a19a46f1d44bb",
+        "type": "http request",
+        "z": "8dad7f9be4206a88",
+        "name": "SBS login",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "sma_http_tls_noverify",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": true,
+        "headers": [],
+        "x": 200,
+        "y": 340,
+        "wires": [
+            [
+                "9a3d748ec8414a1d"
+            ]
+        ]
+    },
+    {
+        "id": "9a3d748ec8414a1d",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Extract SID",
+        "func": "let sid = msg.payload?.result?.sid;\n\nif (!sid) {\n    node.warn(\"SMA SBS HTTP login failed: \" + JSON.stringify(msg.payload));\n    flow.set(\"diag_battery_http_status\", \"login_err\");\n    return null;\n}\n\n\n\nmsg.sid = sid;\nflow.set(\"sma_sbs_http_sid_last_ok\", Date.now());\nflow.set(\"sma_sbs_http_sid\", sid);\nflow.set(\"sma_sbs_http_sid_ts\", Date.now());\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 380,
+        "wires": [
+            [
+                "5f88fb63ae9f45c0",
+                "7bf9bd072c3a83da"
+            ]
+        ]
+    },
+    {
+        "id": "5f88fb63ae9f45c0",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Build SBS getValues request",
+        "func": "msg.url = `https://${msg.sma_sbs_ip}/dyn/getValues.json?sid=${msg.sid}`;\nmsg.method = \"POST\";\nmsg.headers = {\n    \"Content-Type\": \"application/json\"\n};\n\nmsg.payload = {\n    destDev: [],\n    keys: [\n        \"6100_00696E00\",\n        \"6100_00496900\",\n        \"6100_00496A00\",\n        \"6100_00295A00\"\n    ]\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 420,
+        "wires": [
+            [
+                "fabc57e271c94a96"
+            ]
+        ]
+    },
+    {
+        "id": "fabc57e271c94a96",
+        "type": "http request",
+        "z": "8dad7f9be4206a88",
+        "name": "SBS getValues",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "sma_http_tls_noverify",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": true,
+        "headers": [],
+        "x": 380,
+        "y": 460,
+        "wires": [
+            [
+                "ecbd36b2af874970"
+            ]
+        ]
+    },
+    {
+        "id": "ecbd36b2af874970",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Decode SBS HTTP battery values",
+        "func": "function n(v, d = null) {\n    v = Number(v);\n    return isFinite(v) ? v : d;\n}\n\n// Keep false for the first days: use HTTP mainly as SoC fallback.\n// Change to true only if you want HTTP to overwrite P_Batt as primary battery power.\nconst USE_HTTP_POWER_AS_PRIMARY = true;\n\nlet result = msg.payload?.result;\nif (!result || typeof result !== \"object\") {\n    node.warn(\"SMA SBS HTTP: no result object: \" + JSON.stringify(msg.payload));\n    flow.set(\"diag_battery_http_status\", \"err_no_result\");\n    return null;\n}\n\nlet deviceKey = Object.keys(result).find(k =>\n    result[k] && (\n        result[k][\"6100_00696E00\"] ||\n        result[k][\"6100_00496900\"] ||\n        result[k][\"6100_00496A00\"] ||\n        result[k][\"6100_00295A00\"]\n    )\n);\n\nif (!deviceKey) {\n    node.warn(\"SMA SBS HTTP: battery device not found\");\n    flow.set(\"diag_battery_http_status\", \"err_no_battery_device\");\n    return null;\n}\n\nlet dev = result[deviceKey];\n\nfunction readVal(key) {\n    let obj = dev[key];\n    if (!obj) return null;\n\n    if (obj[\"7\"] && obj[\"7\"][0] && obj[\"7\"][0].val !== undefined) {\n        return n(obj[\"7\"][0].val);\n    }\n\n    let firstChannel = Object.keys(obj)[0];\n    if (\n        firstChannel &&\n        obj[firstChannel] &&\n        obj[firstChannel][0] &&\n        obj[firstChannel][0].val !== undefined\n    ) {\n        return n(obj[firstChannel][0].val);\n    }\n\n    return null;\n}\n\nlet battCapacityWh = readVal(\"6100_00696E00\");\nlet battChargingW = readVal(\"6100_00496900\");\nlet battDischargingW = readVal(\"6100_00496A00\");\nlet battSoc = readVal(\"6100_00295A00\");\n\nif (battChargingW === null) battChargingW = 0;\nif (battDischargingW === null) battDischargingW = 0;\n\nlet P_net_batt_charge = 0;\n\nif (battChargingW > 20) {\n    P_net_batt_charge = -battChargingW;\n}\nelse if (battDischargingW > 20) {\n    P_net_batt_charge = battDischargingW;\n}\n\nlet now = Date.now();\n\nif (battSoc !== null && battSoc >= 0 && battSoc <= 100) {\n    let soc = Math.round(battSoc);\n    flow.set(\"Battery_Soc\", soc);\n    flow.set(\"ems_battery_soc\", soc);\n    flow.set(\"Battery_Soc_last_good\", soc);\n    flow.set(\"battery_soc_last_seen\", now);\n    flow.set(\"diag_battery_soc_read_ts\", now);\n    flow.set(\"diag_battery_soc_read_status\", \"ok_http\");\n} else {\n    node.warn(\"SMA SBS HTTP: invalid SoC: \" + battSoc);\n}\n\nlet U1 = n(flow.get(\"U1\"), 230);\nif (U1 < 180 || U1 > 260) U1 = 230;\n\nlet I_net_batt_charge = Math.round((P_net_batt_charge / U1) * 10) / 10;\n\nif (USE_HTTP_POWER_AS_PRIMARY) {\n    flow.set(\"P_Batt\", P_net_batt_charge);\n    flow.set(\"P1_Batt\", P_net_batt_charge);\n    flow.set(\"P2_Batt\", 0);\n    flow.set(\"P3_Batt\", 0);\n    flow.set(\"I1_Batt\", I_net_batt_charge);\n    flow.set(\"I2_Batt\", 0);\n    flow.set(\"I3_Batt\", 0);\n    flow.set(\"diag_battery_power_read_ts\", now);\n}\n\nflow.set(\"sma_battery_http_last_good\", now);\nflow.set(\"diag_battery_http_status\", \"ok\");\nflow.set(\"diag_battery_http_device_key\", deviceKey);\nflow.set(\"diag_battery_http_soc\", battSoc);\nflow.set(\"diag_battery_http_power\", P_net_batt_charge);\n\nmsg.topic = \"Storage\";\nmsg.payload = {\n    P_net_batt_charge,\n    P_batt_capacity: battCapacityWh,\n    P_batt_charge: battSoc,\n    I_net_batt_charge,\n    P1_net_batt_charge: P_net_batt_charge,\n    P2_net_batt_charge: 0,\n    P3_net_batt_charge: 0,\n    source: \"SMA_HTTP\",\n    useHttpPowerAsPrimary: USE_HTTP_POWER_AS_PRIMARY\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 500,
+        "wires": [
+            [
+                "e59bd8268cdb4e75"
+            ]
+        ]
+    },
+    {
+        "id": "e59bd8268cdb4e75",
+        "type": "debug",
+        "z": "8dad7f9be4206a88",
+        "name": "SBS HTTP battery decoded",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 460,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "7bf9bd072c3a83da",
+        "type": "debug",
+        "z": "8dad7f9be4206a88",
+        "name": "debug 80",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 500,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "8f87ba244b7d232c",
+        "type": "inject",
+        "z": "8dad7f9be4206a88",
+        "d": true,
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1130,
+        "y": 100,
+        "wires": [
+            [
+                "f26eb3258a3bd452"
+            ]
+        ]
+    },
+    {
+        "id": "f26eb3258a3bd452",
+        "type": "change",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "headers",
+                "pt": "msg",
+                "to": "{Content-Type: application/json\"}",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "{\"right\": \"usr\", \"pass\": \"YOUR_SMA_PASSWORD_HERE\"}",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1300,
+        "y": 140,
+        "wires": [
+            [
+                "2d3f47aa06047552"
+            ]
+        ]
+    },
+    {
+        "id": "2d3f47aa06047552",
+        "type": "http request",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://YOUR_SMA_BATTERY_IP/dyn/login.json",
+        "tls": "d20a4501.6beaa8",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1530,
+        "y": 180,
+        "wires": [
+            [
+                "31aefc79a5c2c8a7"
+            ]
+        ]
+    },
+    {
+        "id": "31aefc79a5c2c8a7",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "session ID",
+        "func": "if (!msg.payload || !msg.payload.result || !msg.payload.result.sid) {\n    node.warn(\"SMA login failed/no SID: \" + JSON.stringify(msg.payload));\n    flow.set(\"diag_battery_http_status\", \"login_err\");\n    return null;\n}\n\nmsg.sid = msg.payload.result.sid;\nflow.set(\"diag_battery_http_status\", \"login_ok\");\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1590,
+        "y": 240,
+        "wires": [
+            [
+                "45e50152f1e57397"
+            ]
+        ]
+    },
+    {
+        "id": "45e50152f1e57397",
+        "type": "change",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "headers",
+                "pt": "msg",
+                "to": "{Content-Type: application/json\"}",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "{\"destDev\": [], \"keys\": [\"6100_00696E00\",\"6100_00496900\",\"6100_00496A00\",\"6100_00295A00\"]}",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1440,
+        "y": 300,
+        "wires": [
+            [
+                "5a565b737abc3258"
+            ]
+        ]
+    },
+    {
+        "id": "5a565b737abc3258",
+        "type": "http request",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://YOUR_SMA_BATTERY_IP/dyn/getValues.json?sid={{sid}}",
+        "tls": "83ec98ee.57b2b8",
+        "persist": true,
+        "proxy": "",
+        "authType": "",
+        "x": 1530,
+        "y": 360,
+        "wires": [
+            [
+                "88cd1c5dfa46f564",
+                "845004361cbbcc52"
+            ]
+        ]
+    },
+    {
+        "id": "845004361cbbcc52",
+        "type": "function",
+        "z": "8dad7f9be4206a88",
+        "name": "Storage decoding",
+        "func": "//var arr_p_supply_to_grid_info_PV = msg.payload.result[\"0198-xxxxx2AE\"][\"6100_40263F00\"];// Does NOT exist\nvar arr_p_batt_capacity = msg.payload.result[\"0169-xxxxxBEA\"][\"6100_00696E00\"];\nvar arr_p_batt_charging = msg.payload.result[\"0169-xxxxxBEA\"][\"6100_00496900\"];\nvar arr_p_batt_discharging = msg.payload.result[\"0169-xxxxxBEA\"][\"6100_00496A00\"];\nvar arr_p_batt_charge = msg.payload.result[\"0169-xxxxxBEA\"][\"6100_00295A00\"];\nvar P_net_batt_charge = null;\n\n//P_supply_to_grid_info_PV = arr_p_supply_to_grid_info_PV[\"1\"][0].val;\nvar P_batt_charging = arr_p_batt_charging[\"7\"][0].val;\nvar P_batt_discharging = arr_p_batt_discharging[\"7\"][0].val;\nvar P_batt_capacity = arr_p_batt_capacity[\"7\"][0].val;\nvar P_batt_charge = arr_p_batt_charge[\"7\"][0].val;\n\nif (P_batt_charging > 0){\n    P_net_batt_charge = -P_batt_charging;\n}\nif (P_batt_discharging > 0){\n    P_net_batt_charge = P_batt_discharging;\n}\n\nvar P1_net_batt_charge = P_net_batt_charge; // connected to L1\nvar P2_net_batt_charge =0;\nvar P3_net_batt_charge =0;\n\nvar I_net_batt_charge=Math.round(P_net_batt_charge/flow.get(\"U1\"));\n\nmsg.payload = {P_net_batt_charge,P_batt_capacity,P_batt_charge,I_net_batt_charge,P1_net_batt_charge,P2_net_batt_charge,P3_net_batt_charge}\nmsg.topic = \"Storage\";\n\nflow.set(\"Battery_Soc\", P_batt_charge);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1790,
+        "y": 380,
+        "wires": [
+            [
+                "44402f002c436c84"
+            ]
+        ]
+    },
+    {
+        "id": "f9cfcbaf9c9d3beb",
+        "type": "comment",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "info": "put username and password here",
+        "x": 1280,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "bbb224a31cb40613",
+        "type": "comment",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "info": "to be adapted with correct array nrs",
+        "x": 1780,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "57729a7918804e70",
+        "type": "comment",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "info": "change URL to IP address of Storage",
+        "x": 1520,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "88cd1c5dfa46f564",
+        "type": "change",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "headers",
+                "pt": "msg",
+                "to": "{Content-Type: application/json\"}",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "{}",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1540,
+        "y": 480,
+        "wires": [
+            [
+                "bb818ab6209a8199"
+            ]
+        ]
+    },
+    {
+        "id": "bb818ab6209a8199",
+        "type": "http request",
+        "z": "8dad7f9be4206a88",
+        "name": "",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://YOUR_SMA_BATTERY_IP/dyn/logout.json?sid={{sid}}",
+        "tls": "83ec98ee.57b2b8",
+        "persist": true,
+        "proxy": "",
+        "authType": "",
+        "x": 1630,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "44402f002c436c84",
+        "type": "debug",
+        "z": "8dad7f9be4206a88",
+        "name": "debug 81",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2060,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "b7b027effa79382a",
+        "type": "debug",
+        "z": "8dad7f9be4206a88",
+        "name": "debug 82",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 580,
+        "y": 1040,
         "wires": []
     },
     {
@@ -4251,7 +4952,7 @@
         "stateLogEnabled": false,
         "queueLogEnabled": false,
         "failureLogEnabled": true,
-        "tcpHost": "YOUR_SMA_INVERTER_IP",
+        "tcpHost": "YOUR_SMA_PV_INVERTER_IP",
         "tcpPort": "502",
         "tcpType": "DEFAULT",
         "serialPort": "/dev/ttyUSB",
@@ -4371,6 +5072,56 @@
         "width": "6",
         "collapse": false,
         "className": ""
+    },
+    {
+        "id": "ems_decision_group_001",
+        "type": "ui_group",
+        "name": "EMS Decision Engine",
+        "tab": "9a7e86a64426622c",
+        "order": 3,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "sma_http_tls_noverify",
+        "type": "tls-config",
+        "name": "SMA HTTP TLS no verify",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": false
+    },
+    {
+        "id": "d20a4501.6beaa8",
+        "type": "tls-config",
+        "name": "",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": false
+    },
+    {
+        "id": "83ec98ee.57b2b8",
+        "type": "tls-config",
+        "name": "",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": false
     },
     {
         "id": "ba15e503.cce1c8",
