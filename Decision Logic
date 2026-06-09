@@ -1,0 +1,106 @@
+## EMS Decision Framework
+
+The EMS runs every 5 seconds and makes three coordinated decisions: EV charging power, battery control, and solar production limit.
+
+### 1. Operating modes
+
+The EMS can run in three modes:
+
+* **SMA mode**: default/passive behavior.
+* **WINTER mode**: allows grid charging when the afname price is below the configured winter threshold.
+* **SUMMER mode**: activates automatic solar control and dynamic price-based optimization.
+
+In SUMMER mode, solar control is forced to AUTO.
+
+### 2. EV connection and master enable logic
+
+When the EV is newly connected, the EMS automatically enables EV charging.
+
+The EV sub-mode settings are restored from the previous connection:
+* Manual EV is restored to its previous on/off state.
+* Timer EV is restored to its previous on/off state.
+* Solar EV is restored to its previous on/off state.
+
+When the EV is disconnected, active EV charging controls are switched off for safety, but the previous sub-mode preferences are remembered.
+
+The master toggle **Enable charging** always prevails during the current connection. If the user disables EV charging while the car is connected, the EV target is forced to 0 kW / 0 A and the EV remains disabled until either the user enables it again or the car is disconnected and reconnected.
+
+### 3. EV charging decision
+
+The EMS first checks manual and scheduled EV charging:
+
+* Manual EV charging uses the configured manual kW value.
+* Timer EV charging only runs when the Timer EV toggle is enabled and the scheduler is currently active. The dashboard shows both the Timer EV setting and the live scheduler state.
+* Solar EV charging uses available surplus solar if enough power is available.
+
+The minimum practical EV charging power is 4.2 kW. The maximum EV charging power is 11 kW.
+
+If Solar EV charging is active, the EMS normally starts or continues EV charging only when enough surplus solar is available. To avoid rapid on/off switching during short cloud passages or load spikes, a temporary grid-import grace period is allowed:
+
+* Up to 500 W grid import is tolerated for up to 120 seconds.
+* Between 500 W and 2,000 W grid import is tolerated for up to 60 seconds.
+* Above 2,000 W grid import, Solar EV charging is stopped immediately.
+
+If the afname price is negative, this overrides normal Solar EV logic and the EV is requested to charge at maximum power, provided the EV is connected and charging is enabled.
+
+Safety limits can reduce or stop EV charging:
+
+* Above 35 A phase current: EV charging is reduced.
+* Above 38 A phase current: EV charging is stopped and a cooldown period starts.
+
+### 4. Battery decision
+
+Battery control follows this priority:
+
+1. If the user manually selects **BAT CHARGE**, the battery is charged at 5 kW.
+2. If the user manually selects **BAT HOLD**, the battery is held at 0 W.
+3. If forecast-based charging is active, the forecast plan decides whether to charge or hold.
+4. If the afname price is negative and no EV charging is active, the battery charges at 5 kW.
+5. If the afname price is negative and EV charging is active, the EV is prioritized and the battery charge power is limited to the remaining L1 current headroom, so the total phase current stays below the EMS safety threshold.
+6. If the EV is charging or requested to charge under normal conditions, the battery is held to avoid discharging into the EV.
+7. Otherwise, the battery remains in AUTO.
+
+### 5. Forecast-based charging
+
+Forecast-based charging is only available in SUMMER mode when valid price and PV forecast data are available.
+
+The system estimates the energy still needed to fill the home battery, optionally adds the requested EV energy, and then selects the best future PV quarters based on the lowest injection prices. During selected quarters, the battery charges. Outside selected quarters, the battery is held to preserve capacity for better charging windows.
+
+### 6. Solar production decision
+
+Solar output is normally kept fully open at 10 kW, especially when:
+
+* Solar EV mode is active.
+* A solar probe is running.
+* Forecast-based charging is active.
+* Battery SoC is below 95%.
+
+However, negative injection pricing has the highest solar priority.
+
+If the injection price is negative, the EMS sets the solar target to 0 kW. In this tariff setup, negative injection always implies negative afname, so the preferred action is to stop PV production and charge the battery and/or EV from the grid instead of exporting solar power at a negative price.
+
+When injection pricing is not negative, short temporary grid import is allowed during Solar EV charging to avoid rapid switching:
+
+* Up to 500 W import for 120 seconds.
+* Up to 2,000 W import for 60 seconds.
+* Above 2,000 W import, the solar-driven load is stopped or reduced.
+
+### 7. Safety and anti-cycling logic
+
+The EMS uses two types of protection:
+
+* **Electrical safety protection**: phase currents are monitored continuously. EV charging is reduced above 35 A and stopped above 38 A with a cooldown period.
+* **Anti-cycling protection**: during Solar EV charging, the EMS allows short periods of grid import before stopping the EV. This prevents the EV or battery from repeatedly switching on and off due to short clouds, measurement lag, or temporary household load spikes.
+
+### 8. Output commands
+
+At the end of each cycle, the EMS writes:
+
+* EV current target in amps.
+* Battery external-control mode.
+* Battery power target in watts.
+* Solar production limit in kW.
+* Status and diagnostic information for the dashboard.
+
+The EMS therefore acts as a central decision engine: it reads measurements and prices, applies mode-specific priorities, anti-cycling rules, and safety limits, then sends coordinated commands to the EV charger, battery inverter, and solar inverter.
+*/
